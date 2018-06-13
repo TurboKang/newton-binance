@@ -4,15 +4,14 @@ import java.util.*
 import kotlin.concurrent.fixedRateTimer
 
 fun main(args : Array<String>) {
-    val mainUrl = "https://private-anon-4f9a3942c2-kucoinapidocs.apiary-mock.com"
     val prop = Properties()
     prop.load(ClassLoader.getSystemResourceAsStream("application.properties"))
-    val cl = Client(
-            domain = mainUrl,
+    val cl = KucoinClient(
+            domain = prop.getProperty("kucoin.domain"),
             apiKey = prop.getProperty("kucoin.key"),
             apiSecret = prop.getProperty("kucoin.secret")
     )
-    System.out.println(cl.createHeader("/v1/KCS-BTC/order", emptyMap()))
+    System.out.println(cl.getUserInfo())
     /*
     FuelManager.instance.basePath = mainUrl
     val fixedRateTimer = fixedRateTimer(name = "hello-timer", period = 1000) {

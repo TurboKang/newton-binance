@@ -1,3 +1,5 @@
+import com.github.kittinunf.fuel.Fuel
+import com.github.kittinunf.fuel.core.FuelManager
 import org.slf4j.LoggerFactory
 import java.nio.charset.Charset
 import java.util.*
@@ -6,17 +8,21 @@ import javax.crypto.Mac
 import javax.xml.bind.DatatypeConverter
 
 
-class Client(
+class KucoinClient(
         private val domain: String,
         private val apiKey: String,
         private val apiSecret: String,
         private val language: String = "en_US"
 ) {
-    companion object {
-        val logger = LoggerFactory.getLogger(Client::class.java)
-    }
 
-    fun createHeader(path: String, data: Map<String, Object>): Map<String, String> {
+    fun getUserInfo(): String {
+        val path = "/v1/user/info"
+        FuelManager.instance.basePath = domain
+        FuelManager.instance.baseHeaders = createHeader(path, emptyMap())
+        val (request, response, result) = Fuel.get(domain + path).responseString()
+        return result.get()
+    }
+    private fun createHeader(path: String, data: Map<String, Object>): Map<String, String> {
         return mapOf(
                 Pair("KC-API-KEY", apiKey),
                 Pair("KC-API-NONCE", System.currentTimeMillis().toString()),
