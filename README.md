@@ -1,0 +1,1 @@
+https://kucoinapidocs.docs.apiary.io
