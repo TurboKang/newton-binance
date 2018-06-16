@@ -1,17 +1,17 @@
-import com.github.kittinunf.fuel.core.FuelManager
-import com.github.kittinunf.fuel.httpGet
+package com.turbo
+
+import com.turbo.binance.BinanceClient
 import java.util.*
-import kotlin.concurrent.fixedRateTimer
 
 fun main(args : Array<String>) {
     val prop = Properties()
     prop.load(ClassLoader.getSystemResourceAsStream("application.properties"))
-    val cl = KucoinClient(
-            domain = prop.getProperty("kucoin.domain"),
-            apiKey = prop.getProperty("kucoin.key"),
-            apiSecret = prop.getProperty("kucoin.secret")
+    val binanceClient = BinanceClient(
+            domain = prop.getProperty("binance.domain"),
+            apiKey = prop.getProperty("binance.key"),
+            apiSecret = prop.getProperty("binance.secret")
     )
-    System.out.println(cl.getUserInfo())
+    System.out.println(binanceClient.getExchangeInfo())
     /*
     FuelManager.instance.basePath = mainUrl
     val fixedRateTimer = fixedRateTimer(name = "hello-timer", period = 1000) {
