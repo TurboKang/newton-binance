@@ -1,8 +1,8 @@
 package com.turbo.binance
 
-import com.fasterxml.jackson.databind.JsonNode
 import com.github.kittinunf.fuel.Fuel
 import com.github.kittinunf.fuel.core.FuelManager
+import com.turbo.binance.model.ExchangeInfo
 import com.turbo.util.Jsonifier
 import org.apache.commons.codec.binary.Hex
 import java.nio.charset.Charset
@@ -29,15 +29,15 @@ class BinanceClient(
     fun getServerTime(): Long {
         val path = "/api/v1/time"
         val (_,_,result) = Fuel.get(domain + path).responseString()
-        val timestamp = Jsonifier.parse(result.get())["serverTime"].longValue()
+        val timestamp = Jsonifier.readTree(result.get())["serverTime"].longValue()
         val zonedDateTime = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault())
         return timestamp
     }
 
-    fun getExchangeInfo(): JsonNode {
+    fun getExchangeInfo(): ExchangeInfo {
         val path = "/api/v1/exchangeInfo"
         val (_,_,result) = Fuel.get(domain + path).responseString()
-        return Jsonifier.parse(result.get())
+        return Jsonifier.readValue(result.get(), ExchangeInfo::class.java)
     }
 
     private fun createSignature(data: Map<String, String>): String {

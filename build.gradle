@@ -45,6 +45,7 @@ dependencies {
     compile "com.github.kittinunf.fuel:fuel-jackson:$fuel_version"
     compile "commons-codec:commons-codec:1.11"
     compile "com.fasterxml.jackson.core:jackson-databind:2.9.5"
+    compile "com.fasterxml.jackson.module:jackson-module-kotlin:2.9.5"
 
 
     compile "org.slf4j:slf4j-api:1.7.25"
