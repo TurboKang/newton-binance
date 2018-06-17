@@ -12,7 +12,6 @@ object Jsonifier {
     }
 
     fun <T> readValue(str: String, classType: Class<T>): T {
-        System.out.println(str)
         return objectMapper.readValue(str, classType)
     }
 }
