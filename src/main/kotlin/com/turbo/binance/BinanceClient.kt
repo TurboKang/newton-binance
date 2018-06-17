@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.node.ArrayNode
 import com.github.kittinunf.fuel.Fuel
 import com.github.kittinunf.fuel.core.FuelManager
 import com.turbo.binance.enum.CandleIntervalEnum
+import com.turbo.binance.enum.OrderSideEnum
+import com.turbo.binance.enum.OrderStatusEnum
+import com.turbo.binance.enum.OrderTypeEnum
 import com.turbo.binance.model.*
 import com.turbo.util.Jsonifier
 import org.apache.commons.codec.binary.Hex
@@ -78,11 +81,7 @@ class BinanceClient(
     }
 
     fun getTrades(symbolStr: String, limit: Int): List<Trade> {
-        val confirmedLimit = if(limit > 500) {
-            500
-        } else {
-            limit
-        }
+        val confirmedLimit = maxOf(limit, 500)
         val path = "/api/v1/trades"
         val (_,_,result) = Fuel.get(
                 path = domain + path,
@@ -103,11 +102,7 @@ class BinanceClient(
     }
 
     fun getHistoricalTradesFromToRecent(symbolStr: String, limit: Int, fromIdInclusive: Long): List<Trade> {
-        val confirmedLimit = if(limit > 500) {
-            500
-        } else {
-            limit
-        }
+        val confirmedLimit = maxOf(limit, 500)
         val path = "/api/v1/historicalTrades"
         val (_,_,result) = Fuel.get(
                 path = domain + path,
@@ -129,11 +124,7 @@ class BinanceClient(
     }
 
     fun getAggregateTrade(symbolStr: String, /*fromIdInclusive: Long,*/ startZonedDateTime: ZonedDateTime, duration: Duration, limit: Int): List<AggregateTrade> {
-        val confirmedLimit = if(limit > 500) {
-            500
-        } else {
-            limit
-        }
+        val confirmedLimit = maxOf(limit, 500)
         val endZonedDateTime = startZonedDateTime.plus(if(duration > Duration.ofDays(1)) {
             Duration.ofDays(1)
         } else {
@@ -164,11 +155,7 @@ class BinanceClient(
     }
 
     fun getCandles(symbolStr: String, interval: CandleIntervalEnum, limit: Int, firstCandleOpenZonedDateTime: ZonedDateTime, lastCandleOpenZonedDateTime: ZonedDateTime): List<Candle> {
-        val confirmedLimit = if(limit > 500) {
-            500
-        } else {
-            limit
-        }
+        val confirmedLimit = maxOf(limit, 500)
         val path = "/api/v1/klines"
         val (_,_,result) = Fuel.get(
                 path = domain + path,
@@ -302,7 +289,226 @@ class BinanceClient(
         }
     }
 
-    
+//    fun sendMarketOrder(symbolStr: String, side: OrderSideEnum, quantity: BigDecimal)
+
+    fun queryOrder(symbolStr: String, clientOrderId: String, recvWindow: Int = 5000): Order {
+        val path = "/api/v3/order"
+        val params = mapOf(
+                Pair("symbol", symbolStr),
+                Pair("clientOrderId", clientOrderId),
+                Pair("recvWindow", recvWindow.toString()),
+                Pair("timestamp", System.currentTimeMillis().toString())
+        )
+        val (_,_,result) = Fuel.get(
+                path = domain + path,
+                parameters = params.toList().plus(Pair("signature", createSignature(params)))
+        ).responseString()
+        val jsonNode = Jsonifier.readTree(result.get())
+        return Order(
+                symbol = symbolStr,
+                orderId = jsonNode["orderId"].longValue(),
+                clientOrderId = jsonNode["clientOrderId"].textValue(),
+                price = BigDecimal(jsonNode["price"].textValue()),
+                originQuantity = BigDecimal(jsonNode["origQty"].textValue()),
+                executedQuantity = BigDecimal(jsonNode["executedQty"].textValue()),
+                status = OrderStatusEnum.valueOf(jsonNode["status"].textValue()),
+                type = OrderTypeEnum.valueOf(jsonNode["type"].textValue()),
+                side = OrderSideEnum.valueOf(jsonNode["side"].textValue()),
+                stopPrice = BigDecimal(jsonNode["stopPrice"].textValue()),
+                icebergQuantity = BigDecimal(jsonNode["icebergQty"].textValue()),
+                time = Instant.ofEpochMilli(jsonNode["time"].longValue()).atZone(ZoneId.systemDefault()),
+                isWorking = jsonNode["isWorking"].booleanValue()
+        )
+    }
+    fun queryOpenOrdersOfSymbol(symbolStr: String, recvWindow: Int): List<Order> {
+        val path = "/api/v3/openOrders"
+        val params = mapOf(
+                Pair("symbol", symbolStr),
+                Pair("timestamp", System.currentTimeMillis().toString()),
+                Pair("recvWindow", recvWindow.toString())
+        )
+        val (_,_,result) = Fuel.get(
+                path = domain + path,
+                parameters = params.toList().plus(Pair("signature", createSignature(params)))
+        ).responseString()
+
+        val ordersArrayNode = Jsonifier.readTree(result.get()) as ArrayNode
+        return ordersArrayNode.toList().map {jsonNode ->
+            Order(
+                    symbol = symbolStr,
+                    orderId = jsonNode["orderId"].longValue(),
+                    clientOrderId = jsonNode["clientOrderId"].textValue(),
+                    price = BigDecimal(jsonNode["price"].textValue()),
+                    originQuantity = BigDecimal(jsonNode["origQty"].textValue()),
+                    executedQuantity = BigDecimal(jsonNode["executedQty"].textValue()),
+                    status = OrderStatusEnum.valueOf(jsonNode["status"].textValue()),
+                    type = OrderTypeEnum.valueOf(jsonNode["type"].textValue()),
+                    side = OrderSideEnum.valueOf(jsonNode["side"].textValue()),
+                    stopPrice = BigDecimal(jsonNode["stopPrice"].textValue()),
+                    icebergQuantity = BigDecimal(jsonNode["icebergQty"].textValue()),
+                    time = Instant.ofEpochMilli(jsonNode["time"].longValue()).atZone(ZoneId.systemDefault()),
+                    isWorking = jsonNode["isWorking"].booleanValue()
+            )
+        }
+    }
+    fun queryOpenOrdersOfEverySymbols(recvWindow: Int): List<Order> {
+        val path = "/api/v3/openOrders"
+        val params = mapOf(
+                Pair("timestamp", System.currentTimeMillis().toString()),
+                Pair("recvWindow", recvWindow.toString())
+        )
+        val (_,_,result) = Fuel.get(
+                path = domain + path,
+                parameters = params.toList().plus(Pair("signature", createSignature(params)))
+        ).responseString()
+
+        val ordersArrayNode = Jsonifier.readTree(result.get()) as ArrayNode
+        return ordersArrayNode.toList().map {jsonNode ->
+            Order(
+                    symbol = jsonNode["symbol"].textValue(),
+                    orderId = jsonNode["orderId"].longValue(),
+                    clientOrderId = jsonNode["clientOrderId"].textValue(),
+                    price = BigDecimal(jsonNode["price"].textValue()),
+                    originQuantity = BigDecimal(jsonNode["origQty"].textValue()),
+                    executedQuantity = BigDecimal(jsonNode["executedQty"].textValue()),
+                    status = OrderStatusEnum.valueOf(jsonNode["status"].textValue()),
+                    type = OrderTypeEnum.valueOf(jsonNode["type"].textValue()),
+                    side = OrderSideEnum.valueOf(jsonNode["side"].textValue()),
+                    stopPrice = BigDecimal(jsonNode["stopPrice"].textValue()),
+                    icebergQuantity = BigDecimal(jsonNode["icebergQty"].textValue()),
+                    time = Instant.ofEpochMilli(jsonNode["time"].longValue()).atZone(ZoneId.systemDefault()),
+                    isWorking = jsonNode["isWorking"].booleanValue()
+            )
+        }
+    }
+    fun queryAllOrders(symbolStr: String, limit: Int, recvWindow: Int = 5000): List<Order> {
+        val path = "/api/v3/allOrders"
+        val confirmedLimit = maxOf(limit, 500)
+        val params = mapOf(
+                Pair("symbol", symbolStr),
+                Pair("limit", confirmedLimit.toString()),
+                Pair("timestamp", System.currentTimeMillis().toString()),
+                Pair("recvWindow", recvWindow.toString())
+        )
+        val (_,_,result) = Fuel.get(
+                path = domain + path,
+                parameters = params.toList().plus(Pair("signature", createSignature(params)))
+        ).responseString()
+
+        val ordersArrayNode = Jsonifier.readTree(result.get()) as ArrayNode
+        return ordersArrayNode.toList().map {jsonNode ->
+            Order(
+                    symbol = symbolStr,
+                    orderId = jsonNode["orderId"].longValue(),
+                    clientOrderId = jsonNode["clientOrderId"].textValue(),
+                    price = BigDecimal(jsonNode["price"].textValue()),
+                    originQuantity = BigDecimal(jsonNode["origQty"].textValue()),
+                    executedQuantity = BigDecimal(jsonNode["executedQty"].textValue()),
+                    status = OrderStatusEnum.valueOf(jsonNode["status"].textValue()),
+                    type = OrderTypeEnum.valueOf(jsonNode["type"].textValue()),
+                    side = OrderSideEnum.valueOf(jsonNode["side"].textValue()),
+                    stopPrice = BigDecimal(jsonNode["stopPrice"].textValue()),
+                    icebergQuantity = BigDecimal(jsonNode["icebergQty"].textValue()),
+                    time = Instant.ofEpochMilli(jsonNode["time"].longValue()).atZone(ZoneId.systemDefault()),
+                    isWorking = jsonNode["isWorking"].booleanValue()
+            )
+        }
+    }
+    fun queryAllOrdersLowerBoundedOrderId(symbolStr: String, orderIdLowerBound: Long, limit: Int, recvWindow: Int = 5000): List<Order> {
+        val path = "/api/v3/allOrders"
+        val confirmedLimit = maxOf(limit, 500)
+        val params = mapOf(
+                Pair("symbol", symbolStr),
+                Pair("limit", confirmedLimit.toString()),
+                Pair("orderId", orderIdLowerBound.toString()),
+                Pair("timestamp", System.currentTimeMillis().toString()),
+                Pair("recvWindow", recvWindow.toString())
+        )
+        val (_,_,result) = Fuel.get(
+                path = domain + path,
+                parameters = params.toList().plus(Pair("signature", createSignature(params)))
+        ).responseString()
+
+        val ordersArrayNode = Jsonifier.readTree(result.get()) as ArrayNode
+        return ordersArrayNode.toList().map {jsonNode ->
+            Order(
+                    symbol = symbolStr,
+                    orderId = jsonNode["orderId"].longValue(),
+                    clientOrderId = jsonNode["clientOrderId"].textValue(),
+                    price = BigDecimal(jsonNode["price"].textValue()),
+                    originQuantity = BigDecimal(jsonNode["origQty"].textValue()),
+                    executedQuantity = BigDecimal(jsonNode["executedQty"].textValue()),
+                    status = OrderStatusEnum.valueOf(jsonNode["status"].textValue()),
+                    type = OrderTypeEnum.valueOf(jsonNode["type"].textValue()),
+                    side = OrderSideEnum.valueOf(jsonNode["side"].textValue()),
+                    stopPrice = BigDecimal(jsonNode["stopPrice"].textValue()),
+                    icebergQuantity = BigDecimal(jsonNode["icebergQty"].textValue()),
+                    time = Instant.ofEpochMilli(jsonNode["time"].longValue()).atZone(ZoneId.systemDefault()),
+                    isWorking = jsonNode["isWorking"].booleanValue()
+            )
+        }
+    }
+
+    fun getAccountInfo(recvWindow: Int = 5000): AccountInfo {
+        val path = "/api/v3/account"
+        val params = mapOf(
+                Pair("timestamp", System.currentTimeMillis().toString()),
+                Pair("recvWindow", recvWindow.toString())
+        )
+        val (_,_,result) = Fuel.get(
+                path = domain + path,
+                parameters = params.toList().plus(Pair("signature", createSignature(params)))
+        ).responseString()
+        val jsonNode = Jsonifier.readTree(result.get())
+        return AccountInfo(
+                makerCommission = jsonNode["makerCommission"].intValue(),
+                takerCommission = jsonNode["makerCommission"].intValue(),
+                buyerCommission = jsonNode["makerCommission"].intValue(),
+                sellerCommission = jsonNode["makerCommission"].intValue(),
+                canTrade = jsonNode["canTrade"].booleanValue(),
+                canWithdraw = jsonNode["canTrade"].booleanValue(),
+                canDeposit = jsonNode["canTrade"].booleanValue(),
+                balances = (jsonNode["balances"] as ArrayNode).map {
+                    AccountInfo.AssetBalance(
+                            asset = it["asset"].textValue(),
+                            free = BigDecimal(it["free"].textValue()),
+                            locked = BigDecimal(it["locked"].textValue())
+                    )
+                },
+                updateTime = Instant.ofEpochMilli(jsonNode["updateTime"].longValue()).atZone(ZoneId.systemDefault())
+        )
+    }
+
+    fun getMyTrades(symbolStr: String, limit: Int, fromId: Long, recvWindow: Int = 5000): List<MyTrade> {
+        val path = "/api/v3/myTrades"
+        val confirmedLimit = maxOf(limit, 500)
+        val params = mapOf(
+                Pair("symbol", symbolStr),
+                Pair("limit", confirmedLimit.toString()),
+                Pair("timestamp", System.currentTimeMillis().toString()),
+                Pair("recvWindow", recvWindow.toString())
+        )
+        val (_,_,result) = Fuel.get(
+                path = domain + path,
+                parameters = params.toList().plus(Pair("signature", createSignature(params)))
+        ).responseString()
+
+        val myTradeArrayNode = Jsonifier.readTree(result.get()) as ArrayNode
+        return myTradeArrayNode.toList().map {
+            MyTrade(
+                    id = it["id"].longValue(),
+                    orderId = it["orderId"].longValue(),
+                    price = BigDecimal(it["price"].textValue()),
+                    quantity = BigDecimal(it["qty"].textValue()),
+                    commission = BigDecimal(it["commission"].textValue()),
+                    commissionAsset = it["commissionAsset"].textValue(),
+                    time = Instant.ofEpochMilli(it["time"].longValue()).atZone(ZoneId.systemDefault()),
+                    isBuyer = it["isBuyer"].booleanValue(),
+                    isMaker = it["isMaker"].booleanValue(),
+                    isBestMatch = it["isBestMatch"].booleanValue()
+            )
+        }
+    }
 
     private fun createSignature(data: Map<String, String>): String {
         val queryString = data.toList().joinToString("&") { "${it.first}=${it.second}" }

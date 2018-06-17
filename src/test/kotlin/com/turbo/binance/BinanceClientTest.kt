@@ -133,4 +133,23 @@ class BinanceClientTest {
         Assert.assertTrue(stats.isNotEmpty())
         Assert.assertEquals(exchangeInfo.symbols.size, stats.size)
     }
+
+    @Test
+    fun queryOrder() {
+        val exchangeInfo = binanceClient.getExchangeInfo()
+        val order = binanceClient.queryOrder(exchangeInfo.symbols[0].symbol, "test")
+    }
+    @Test
+    fun getAccountInfo() {
+        val accountInfo = binanceClient.getAccountInfo()
+        System.out.println(accountInfo)
+        Assert.assertNotNull(accountInfo)
+    }
+    @Test
+    fun getMyTrades() {
+        val exchangeInfo = binanceClient.getExchangeInfo()
+        val myTrades = binanceClient.getMyTrades(exchangeInfo.symbols[0].symbol, 500, 0)
+        System.out.println(myTrades)
+        Assert.assertNotNull(myTrades)
+    }
 }
