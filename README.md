@@ -1,1 +1,1 @@
-https://kucoinapidocs.docs.apiary.io
+https://github.com/binance-exchange/binance-official-api-docs
