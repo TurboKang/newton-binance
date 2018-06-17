@@ -1,6 +1,8 @@
 package com.turbo
 
 import com.turbo.binance.BinanceClient
+import com.turbo.binance.enum.OrderSideEnum
+import java.math.BigDecimal
 import java.util.*
 
 fun main(args : Array<String>) {
@@ -11,19 +13,24 @@ fun main(args : Array<String>) {
             apiKey = prop.getProperty("binance.key"),
             apiSecret = prop.getProperty("binance.secret")
     )
-    System.out.println(binanceClient.getExchangeInfo())
-    /*
-    FuelManager.instance.basePath = mainUrl
-    val fixedRateTimer = fixedRateTimer(name = "hello-timer", period = 1000) {
-        "/v1/open/lang-list".httpGet().responseString { request, response, result ->
-            //make a GET to http://httpbin.org/get and do something with response
-            val (data, error) = result
-            if (error == null) {
-                System.out.println(data)
-            } else {
-                System.out.println("error")
-            }
-        }
-    }
-    */
+    System.out.println(binanceClient.getServerTime() - System.currentTimeMillis())
+    val exchangeInt = binanceClient.getExchangeInfo()
+    val accountInfo = binanceClient.getAccountInfo()
+
+    val balance_BCC = accountInfo.balances.find { it.asset == "BCC" }
+    System.out.println(balance_BCC)
+    val symbol_BCCBTC = exchangeInt.symbols.find { it.symbol == "BCCBTC" }!!
+    System.out.println(symbol_BCCBTC)
+    val priceTicker_BCCBTC = binanceClient.getPriceTickerOfSymbol("BCCBTC")
+
+    val orderResult = binanceClient.sendTakeProfitLimitOrderACK(
+            symbolStr = "BCCBTC",
+            clientOrderId = "Test" + System.currentTimeMillis().toString(),
+            side = OrderSideEnum.BUY,
+            stopPrice = priceTicker_BCCBTC.price - symbol_BCCBTC.tickSize - symbol_BCCBTC.tickSize - symbol_BCCBTC.tickSize,
+            limitPrice = priceTicker_BCCBTC.price - symbol_BCCBTC.tickSize - symbol_BCCBTC.tickSize - symbol_BCCBTC.tickSize,
+            quantity = BigDecimal("0.008")
+    )
+    System.out.println(orderResult)
+    binanceClient.cancelOrderByOrderId("BCCBTC", orderResult)
 }

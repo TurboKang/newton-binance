@@ -26,7 +26,9 @@ class BinanceClient(
         private val apiSecret: String
 ) {
     init {
-        FuelManager.instance.baseHeaders = mapOf(Pair("X-MBX-APIKEY", apiKey))
+        FuelManager.instance.baseHeaders = mapOf(
+                Pair("X-MBX-APIKEY", apiKey)
+        )
     }
 
     companion object {
@@ -289,7 +291,140 @@ class BinanceClient(
         }
     }
 
-//    fun sendMarketOrder(symbolStr: String, side: OrderSideEnum, quantity: BigDecimal)
+    fun sendMarketOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, quantity: BigDecimal): Long {
+        val params = mapOf(
+                Pair("symbol", symbolStr),
+                Pair("newClientOrderId", clientOrderId),
+                Pair("type", OrderTypeEnum.MARKET.toString()),
+                Pair("side", side.toString()),
+                Pair("quantity", quantity.toString()),
+                Pair("newOrderRespType", "ACK"),
+                Pair("timestamp", System.currentTimeMillis().toString())
+        )
+        return order(params)
+    }
+    fun sendLimitOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, price: BigDecimal, quantity: BigDecimal): Long {
+        val params = mapOf(
+                Pair("symbol", symbolStr),
+                Pair("newClientOrderId", clientOrderId),
+                Pair("type", OrderTypeEnum.LIMIT.toString()),
+                Pair("side", side.toString()),
+                Pair("price", price.toString()),
+                Pair("quantity", quantity.toString()),
+                Pair("newOrderRespType", "ACK"),
+                Pair("timeInForce", "GTC"),
+                Pair("timestamp", System.currentTimeMillis().toString())
+        )
+        return order(params)
+    }
+    fun sendLimitMakerOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, price: BigDecimal, quantity: BigDecimal): Long {
+        val params = mapOf(
+                Pair("symbol", symbolStr),
+                Pair("newClientOrderId", clientOrderId),
+                Pair("type", OrderTypeEnum.LIMIT_MAKER.toString()),
+                Pair("side", side.toString()),
+                Pair("price", price.toString()),
+                Pair("quantity", quantity.toString()),
+                Pair("recvWindow", "5000"),
+                Pair("newOrderRespType", "ACK"),
+                Pair("timestamp", System.currentTimeMillis().toString())
+        )
+        return order(params)
+    }
+    fun sendStopLossOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, stopPrice: BigDecimal, quantity: BigDecimal): Long {
+        val params = mapOf(
+                Pair("symbol", symbolStr),
+                Pair("newClientOrderId", clientOrderId),
+                Pair("type", OrderTypeEnum.STOP_LOSS.toString()),
+                Pair("side", side.toString()),
+                Pair("stopPrice", stopPrice.toString()),
+                Pair("quantity", quantity.toString()),
+                Pair("newOrderRespType", "ACK"),
+                Pair("timestamp", System.currentTimeMillis().toString())
+        )
+        return order(params)
+    }
+    fun sendStopLossLimitOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, stopPrice: BigDecimal, limitPrice: BigDecimal, quantity: BigDecimal): Long {
+        val params = mapOf(
+                Pair("symbol", symbolStr),
+                Pair("newClientOrderId", clientOrderId),
+                Pair("type", OrderTypeEnum.STOP_LOSS_LIMIT.toString()),
+                Pair("side", side.toString()),
+                Pair("price", limitPrice.toString()),
+                Pair("stopPrice", stopPrice.toString()),
+                Pair("quantity", quantity.toString()),
+                Pair("newOrderRespType", "ACK"),
+                Pair("timeInForce", "GTC"),
+                Pair("timestamp", System.currentTimeMillis().toString())
+        )
+        return order(params)
+    }
+    fun sendTakeProfitOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, stopPrice: BigDecimal, quantity: BigDecimal): Long {
+        val params = mapOf(
+                Pair("symbol", symbolStr),
+                Pair("newClientOrderId", clientOrderId),
+                Pair("type", OrderTypeEnum.TAKE_PROFIT.toString()),
+                Pair("side", side.toString()),
+                Pair("stopPrice", stopPrice.toString()),
+                Pair("quantity", quantity.toString()),
+                Pair("newOrderRespType", "ACK"),
+                Pair("timestamp", System.currentTimeMillis().toString())
+        )
+        return order(params)
+    }
+    fun sendTakeProfitLimitOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, stopPrice: BigDecimal, limitPrice: BigDecimal, quantity: BigDecimal): Long {
+        val params = mapOf(
+                Pair("symbol", symbolStr),
+                Pair("newClientOrderId", clientOrderId),
+                Pair("type", OrderTypeEnum.TAKE_PROFIT_LIMIT.toString()),
+                Pair("side", side.toString()),
+                Pair("price", limitPrice.toString()),
+                Pair("stopPrice", stopPrice.toString()),
+                Pair("quantity", quantity.toString()),
+                Pair("newOrderRespType", "ACK"),
+                Pair("timeInForce", "GTC"),
+                Pair("timestamp", System.currentTimeMillis().toString())
+        )
+        return order(params)
+    }
+
+    private fun order(params: Map<String, String>): Long {
+        val path = "/api/v3/order"
+        val (_,_,result) = Fuel.post(
+                path = domain + path,
+                parameters = params.toList().plus(Pair("signature", createSignature(params)))
+        ).responseString()
+        System.out.println(result.get())
+        return Jsonifier.readTree(result.get())["orderId"].longValue()
+    }
+
+    fun cancelOrderByOrderId(symbolStr: String, orderId: Long, recvWindow: Int = 5000) {
+        val path = "/api/v3/order"
+        val params = mapOf(
+                Pair("symbol", symbolStr),
+                Pair("orderId", orderId.toString()),
+                Pair("recvWindow", recvWindow.toString()),
+                Pair("timestamp", System.currentTimeMillis().toString())
+        )
+        val (_,_,result) = Fuel.delete(
+                path = domain + path,
+                parameters = params.toList().plus(Pair("signature", createSignature(params)))
+        ).responseString()
+        System.out.println(result.get())
+    }
+    fun cancelOrderByClientOrderId(symbolStr: String, clientOrderIdOfCancelTarget: String, recvWindow: Int = 5000) {
+        val path = "/api/v3/order"
+        val params = mapOf(
+                Pair("symbol", symbolStr),
+                Pair("orgClientOrderId", clientOrderIdOfCancelTarget),
+                Pair("recvWindow", recvWindow.toString()),
+                Pair("timestamp", System.currentTimeMillis().toString())
+        )
+        val (_,_,result) = Fuel.delete(
+                path = domain + path,
+                parameters = params.toList().plus(Pair("signature", createSignature(params)))
+        ).responseString()
+    }
 
     fun queryOrder(symbolStr: String, clientOrderId: String, recvWindow: Int = 5000): Order {
         val path = "/api/v3/order"
@@ -320,7 +455,7 @@ class BinanceClient(
                 isWorking = jsonNode["isWorking"].booleanValue()
         )
     }
-    fun queryOpenOrdersOfSymbol(symbolStr: String, recvWindow: Int): List<Order> {
+    fun queryOpenOrdersOfSymbol(symbolStr: String, recvWindow: Int = 5000): List<Order> {
         val path = "/api/v3/openOrders"
         val params = mapOf(
                 Pair("symbol", symbolStr),
@@ -351,7 +486,7 @@ class BinanceClient(
             )
         }
     }
-    fun queryOpenOrdersOfEverySymbols(recvWindow: Int): List<Order> {
+    fun queryOpenOrdersOfEverySymbols(recvWindow: Int = 5000): List<Order> {
         val path = "/api/v3/openOrders"
         val params = mapOf(
                 Pair("timestamp", System.currentTimeMillis().toString()),
@@ -479,11 +614,43 @@ class BinanceClient(
         )
     }
 
-    fun getMyTrades(symbolStr: String, limit: Int, fromId: Long, recvWindow: Int = 5000): List<MyTrade> {
+    fun getMyRecentTrades(symbolStr: String, limit: Int, recvWindow: Int = 5000): List<MyTrade> {
         val path = "/api/v3/myTrades"
         val confirmedLimit = maxOf(limit, 500)
         val params = mapOf(
                 Pair("symbol", symbolStr),
+                Pair("limit", confirmedLimit.toString()),
+                Pair("timestamp", System.currentTimeMillis().toString()),
+                Pair("recvWindow", recvWindow.toString())
+        )
+        val (_,_,result) = Fuel.get(
+                path = domain + path,
+                parameters = params.toList().plus(Pair("signature", createSignature(params)))
+        ).responseString()
+
+        val myTradeArrayNode = Jsonifier.readTree(result.get()) as ArrayNode
+        return myTradeArrayNode.toList().map {
+            MyTrade(
+                    id = it["id"].longValue(),
+                    orderId = it["orderId"].longValue(),
+                    price = BigDecimal(it["price"].textValue()),
+                    quantity = BigDecimal(it["qty"].textValue()),
+                    commission = BigDecimal(it["commission"].textValue()),
+                    commissionAsset = it["commissionAsset"].textValue(),
+                    time = Instant.ofEpochMilli(it["time"].longValue()).atZone(ZoneId.systemDefault()),
+                    isBuyer = it["isBuyer"].booleanValue(),
+                    isMaker = it["isMaker"].booleanValue(),
+                    isBestMatch = it["isBestMatch"].booleanValue()
+            )
+        }
+    }
+
+    fun getMyTradesWithLowerBoundTradeId(symbolStr: String, tradeIdLowerBound: Long, limit: Int, recvWindow: Int = 5000): List<MyTrade> {
+        val path = "/api/v3/myTrades"
+        val confirmedLimit = maxOf(limit, 500)
+        val params = mapOf(
+                Pair("symbol", symbolStr),
+                Pair("fromId", tradeIdLowerBound.toString()),
                 Pair("limit", confirmedLimit.toString()),
                 Pair("timestamp", System.currentTimeMillis().toString()),
                 Pair("recvWindow", recvWindow.toString())

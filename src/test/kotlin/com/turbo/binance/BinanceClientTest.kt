@@ -135,9 +135,14 @@ class BinanceClientTest {
     }
 
     @Test
-    fun queryOrder() {
-        val exchangeInfo = binanceClient.getExchangeInfo()
-        val order = binanceClient.queryOrder(exchangeInfo.symbols[0].symbol, "test")
+    fun queryOpenOrders() {
+        val orders = binanceClient.queryOpenOrdersOfEverySymbols()
+        System.out.println(orders)
+    }
+    @Test
+    fun queryOpenOrderOfSymbol() {
+        val orders = binanceClient.queryOpenOrdersOfSymbol("ETHBTC")
+        System.out.println(orders)
     }
     @Test
     fun getAccountInfo() {
@@ -148,7 +153,7 @@ class BinanceClientTest {
     @Test
     fun getMyTrades() {
         val exchangeInfo = binanceClient.getExchangeInfo()
-        val myTrades = binanceClient.getMyTrades(exchangeInfo.symbols[0].symbol, 500, 0)
+        val myTrades = binanceClient.getMyRecentTrades("BCCBTC", 500, 5000)
         System.out.println(myTrades)
         Assert.assertNotNull(myTrades)
     }
