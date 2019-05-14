@@ -36,19 +36,32 @@ fun main() = runBlocking {
     */
 
     val eventQueue = mutableListOf(
-            mutableListOf( suspend { delay(4000) })
+            mutableListOf( suspend { delay(1000) })
     )
     val eventManager = EventManager(
             stepMillis = 1000,
             eventQueue = eventQueue
     )
 
-    val rsiStrategy = RsiStrategy(
+    val rsiStrategy1 = RsiStrategy(
             binanceClient = binanceClient,
-            eventManager = eventManager
+            eventManager = eventManager,
+            symbol = "LTCBTC"
+    )
+    val rsiStrategy2 = RsiStrategy(
+            binanceClient = binanceClient,
+            eventManager = eventManager,
+            symbol = "ETHBTC"
+    )
+    val rsiStrategy3 = RsiStrategy(
+            binanceClient = binanceClient,
+            eventManager = eventManager,
+            symbol = "BTCUSDT"
     )
 
-    rsiStrategy.run()
+    rsiStrategy1.run()
+    rsiStrategy2.run()
+    rsiStrategy3.run()
 
     eventManager.start()
 }

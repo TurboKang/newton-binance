@@ -9,7 +9,8 @@ import java.time.ZonedDateTime
 
 class RsiStrategy(
         private val binanceClient: BinanceClient,
-        private val eventManager: EventManager
+        private val eventManager: EventManager,
+        private val symbol: String
 ) {
     companion object {
         val logger = LoggerFactory.getLogger(RsiStrategy::class.java)
@@ -21,13 +22,13 @@ class RsiStrategy(
 
     private suspend fun queryCandle() {
         val candles = binanceClient.getCandles(
-                symbolStr = "BTCUSDT",
+                symbolStr = symbol,
                 firstCandleOpenZonedDateTime = ZonedDateTime.of(LocalDateTime.now().minusMinutes(90), ZoneId.systemDefault()),
                 lastCandleOpenZonedDateTime = ZonedDateTime.of(LocalDateTime.now(), ZoneId.systemDefault()),
                 interval = CandleIntervalEnum.MINUTE_3,
                 limit = 30
         )
-        System.out.println(candles)
+        System.out.println("$symbol ${candles.size}")
         eventManager.bookFuture(2000, suspend { queryCandle() })
     }
 }
