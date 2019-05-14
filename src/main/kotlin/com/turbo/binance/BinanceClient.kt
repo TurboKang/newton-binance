@@ -3,6 +3,7 @@ package com.turbo.binance
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.github.kittinunf.fuel.Fuel
 import com.github.kittinunf.fuel.core.FuelManager
+import com.github.kittinunf.fuel.coroutines.awaitStringResponseResult
 import com.turbo.binance.enum.CandleIntervalEnum
 import com.turbo.binance.enum.OrderSideEnum
 import com.turbo.binance.enum.OrderStatusEnum
@@ -35,25 +36,25 @@ class BinanceClient(
         private val logger = LoggerFactory.getLogger(BinanceClient::class.java)
     }
 
-    fun ping() {
+    suspend fun ping() {
         val path = "/api/v1/ping"
-        val (_,_,result) = Fuel.get(domain + path).responseString()
+        val (_,_,result) = Fuel.get(domain + path).awaitStringResponseResult()
         System.out.println(result)
     }
 
-    fun getServerTime(): Long {
+    suspend fun getServerTime(): Long {
         val path = "/api/v1/time"
-        val (_,_,result) = Fuel.get(domain + path).responseString()
+        val (_,_,result) = Fuel.get(domain + path).awaitStringResponseResult()
         return Jsonifier.readTree(result.get())["serverTime"].longValue()
     }
 
-    fun getExchangeInfo(): ExchangeInfo {
+    suspend fun getExchangeInfo(): ExchangeInfo {
         val path = "/api/v1/exchangeInfo"
-        val (_,_,result) = Fuel.get(domain + path).responseString()
+        val (_,_,result) = Fuel.get(domain + path).awaitStringResponseResult()
         return Jsonifier.readValue(result.get(), ExchangeInfo::class.java)
     }
 
-    fun getDepth(symbolStr: String, limit: Int): Depth {
+    suspend fun getDepth(symbolStr: String, limit: Int): Depth {
 
         val confirmedLimit = if(!listOf(5, 10, 20, 50, 100, 500, 1000).contains(limit)) {
             logger.error("Unavailable limit")
@@ -69,7 +70,7 @@ class BinanceClient(
                         Pair("symbol", symbolStr),
                         Pair("limit", confirmedLimit.toString())
                 )
-        ).responseString()
+        ).awaitStringResponseResult()
         val resultNode = Jsonifier.readTree(result.get())
         val listOfBidArrayNode = (resultNode["bids"] as ArrayNode).toList() as List<ArrayNode>
         val listOfAskArrayNode = (resultNode["asks"] as ArrayNode).toList() as List<ArrayNode>
@@ -82,7 +83,7 @@ class BinanceClient(
         )
     }
 
-    fun getTrades(symbolStr: String, limit: Int): List<Trade> {
+    suspend fun getTrades(symbolStr: String, limit: Int): List<Trade> {
         val confirmedLimit = maxOf(limit, 500)
         val path = "/api/v1/trades"
         val (_,_,result) = Fuel.get(
@@ -91,7 +92,7 @@ class BinanceClient(
                         Pair("symbol", symbolStr),
                         Pair("limit", confirmedLimit.toString())
                 )
-        ).responseString()
+        ).awaitStringResponseResult()
         val tradeArrayNode = Jsonifier.readTree(result.get())
         return tradeArrayNode.map { Trade(
                 id = it["id"].longValue(),
@@ -103,7 +104,7 @@ class BinanceClient(
         ) }
     }
 
-    fun getHistoricalTradesFromToRecent(symbolStr: String, limit: Int, fromIdInclusive: Long): List<Trade> {
+    suspend fun getHistoricalTradesFromToRecent(symbolStr: String, limit: Int, fromIdInclusive: Long): List<Trade> {
         val confirmedLimit = maxOf(limit, 500)
         val path = "/api/v1/historicalTrades"
         val (_,_,result) = Fuel.get(
@@ -113,7 +114,7 @@ class BinanceClient(
                         Pair("limit", confirmedLimit.toString()),
                         Pair("fromId", fromIdInclusive.toString())
                 )
-        ).responseString()
+        ).awaitStringResponseResult()
         val tradeArrayNode = Jsonifier.readTree(result.get())
         return tradeArrayNode.map { Trade(
                 id = it["id"].longValue(),
@@ -125,7 +126,7 @@ class BinanceClient(
         ) }
     }
 
-    fun getAggregateTrade(symbolStr: String, /*fromIdInclusive: Long,*/ startZonedDateTime: ZonedDateTime, duration: Duration, limit: Int): List<AggregateTrade> {
+    suspend fun getAggregateTrade(symbolStr: String, /*fromIdInclusive: Long,*/ startZonedDateTime: ZonedDateTime, duration: Duration, limit: Int): List<AggregateTrade> {
         val confirmedLimit = maxOf(limit, 500)
         val endZonedDateTime = startZonedDateTime.plus(if(duration > Duration.ofDays(1)) {
             Duration.ofDays(1)
@@ -142,7 +143,7 @@ class BinanceClient(
                         Pair("startTime", (startZonedDateTime.toEpochSecond()*1000L).toString()),
                         Pair("endTime", (endZonedDateTime.toEpochSecond()*1000L).toString())
                 )
-        ).responseString()
+        ).awaitStringResponseResult()
         val aggregateTradeArrayNode = Jsonifier.readTree(result.get())
         return aggregateTradeArrayNode.map { AggregateTrade(
                 aggregateTradeId = it["a"].longValue(),
@@ -156,7 +157,7 @@ class BinanceClient(
         ) }
     }
 
-    fun getCandles(symbolStr: String, interval: CandleIntervalEnum, limit: Int, firstCandleOpenZonedDateTime: ZonedDateTime, lastCandleOpenZonedDateTime: ZonedDateTime): List<Candle> {
+    suspend fun getCandles(symbolStr: String, interval: CandleIntervalEnum, limit: Int, firstCandleOpenZonedDateTime: ZonedDateTime, lastCandleOpenZonedDateTime: ZonedDateTime): List<Candle> {
         val confirmedLimit = maxOf(limit, 500)
         val path = "/api/v1/klines"
         val (_,_,result) = Fuel.get(
@@ -168,7 +169,7 @@ class BinanceClient(
                         Pair("startTime", (firstCandleOpenZonedDateTime.toEpochSecond()*1000L).toString()),
                         Pair("endTime", (lastCandleOpenZonedDateTime.toEpochSecond()*1000L).toString())
                 )
-        ).responseString()
+        ).awaitStringResponseResult()
         val candleArrayNode = Jsonifier.readTree(result.get())
         return candleArrayNode.map { Candle(
                 openTime = Instant.ofEpochMilli(it[0].longValue()).atZone(ZoneId.systemDefault()),
@@ -186,9 +187,9 @@ class BinanceClient(
         ) }
     }
 
-    fun get24HourStatOfSymbol(symbolStr: String): Stat24Hour {
+    suspend fun get24HourStatOfSymbol(symbolStr: String): Stat24Hour {
         val path = "/api/v1/ticker/24hr"
-        val (_,_,result) = Fuel.get(domain + path, listOf(Pair("symbol", symbolStr))).responseString()
+        val (_,_,result) = Fuel.get(domain + path, listOf(Pair("symbol", symbolStr))).awaitStringResponseResult()
         val jsonNode = Jsonifier.readTree(result.get())
         return Stat24Hour(
                 symbol = jsonNode["symbol"].textValue(),
@@ -212,9 +213,9 @@ class BinanceClient(
                 tradeCount = jsonNode["count"].intValue()
         )
     }
-    fun get24HourStatOfEverySymbols(): List<Stat24Hour> {
+    suspend fun get24HourStatOfEverySymbols(): List<Stat24Hour> {
         val path = "/api/v1/ticker/24hr"
-        val (_,_,result) = Fuel.get(domain + path).responseString()
+        val (_,_,result) = Fuel.get(domain + path).awaitStringResponseResult()
         val statArrayNode = Jsonifier.readTree(result.get())
         return statArrayNode.toList().map{jsonNode ->
             Stat24Hour(
@@ -241,9 +242,9 @@ class BinanceClient(
         }
     }
 
-    fun getPriceTickerOfSymbol(symbolStr: String): PriceTicker {
+    suspend fun getPriceTickerOfSymbol(symbolStr: String): PriceTicker {
         val path = "/api/v3/ticker/price"
-        val (_,_,result) = Fuel.get(path = domain + path, parameters = listOf(Pair("symbol", symbolStr))).responseString()
+        val (_,_,result) = Fuel.get(path = domain + path, parameters = listOf(Pair("symbol", symbolStr))).awaitStringResponseResult()
         val jsonNode = Jsonifier.readTree(result.get())
         return PriceTicker(
                 symbol = jsonNode["symbol"].textValue(),
@@ -251,9 +252,9 @@ class BinanceClient(
         )
     }
 
-    fun getEveryPriceTickerOfSymbols(): List<PriceTicker> {
+    suspend fun getEveryPriceTickerOfSymbols(): List<PriceTicker> {
         val path = "/api/v3/ticker/price"
-        val (_,_,result) = Fuel.get(path = domain + path).responseString()
+        val (_,_,result) = Fuel.get(path = domain + path).awaitStringResponseResult()
         val priceTickerArrayNode = Jsonifier.readTree(result.get())
         return priceTickerArrayNode.toList().map {
             PriceTicker(
@@ -263,9 +264,9 @@ class BinanceClient(
         }
     }
 
-    fun getBookTickerOfSymbol(symbolStr: String): BookTicker {
+    suspend fun getBookTickerOfSymbol(symbolStr: String): BookTicker {
         val path = "/api/v3/ticker/bookTicker"
-        val (_,_,result) = Fuel.get(path = domain + path, parameters = listOf(Pair("symbol", symbolStr))).responseString()
+        val (_,_,result) = Fuel.get(path = domain + path, parameters = listOf(Pair("symbol", symbolStr))).awaitStringResponseResult()
         val jsonNode = Jsonifier.readTree(result.get())
         return BookTicker(
                 symbol = jsonNode["symbol"].textValue(),
@@ -276,9 +277,9 @@ class BinanceClient(
         )
     }
 
-    fun getEveryBookTickerOfSymbols(): List<BookTicker> {
-        val path = "/api/v3/ticker/price"
-        val (_,_,result) = Fuel.get(path = domain + path).responseString()
+    suspend fun getEveryBookTickerOfSymbols(): List<BookTicker> {
+        val path = "/api/v3/ticker/bookTicker"
+        val (_,_,result) = Fuel.get(path = domain + path).awaitStringResponseResult()
         val bookTickerArrayNode = Jsonifier.readTree(result.get())
         return bookTickerArrayNode.toList().map {jsonNode ->
             BookTicker(
@@ -291,7 +292,7 @@ class BinanceClient(
         }
     }
 
-    fun sendMarketOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, quantity: BigDecimal): Long {
+    suspend fun sendMarketOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, quantity: BigDecimal): Long {
         val params = mapOf(
                 Pair("symbol", symbolStr),
                 Pair("newClientOrderId", clientOrderId),
@@ -303,7 +304,7 @@ class BinanceClient(
         )
         return order(params)
     }
-    fun sendLimitOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, price: BigDecimal, quantity: BigDecimal): Long {
+    suspend fun sendLimitOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, price: BigDecimal, quantity: BigDecimal): Long {
         val params = mapOf(
                 Pair("symbol", symbolStr),
                 Pair("newClientOrderId", clientOrderId),
@@ -317,7 +318,7 @@ class BinanceClient(
         )
         return order(params)
     }
-    fun sendLimitMakerOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, price: BigDecimal, quantity: BigDecimal): Long {
+    suspend fun sendLimitMakerOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, price: BigDecimal, quantity: BigDecimal): Long {
         val params = mapOf(
                 Pair("symbol", symbolStr),
                 Pair("newClientOrderId", clientOrderId),
@@ -331,7 +332,7 @@ class BinanceClient(
         )
         return order(params)
     }
-    fun sendStopLossOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, stopPrice: BigDecimal, quantity: BigDecimal): Long {
+    suspend fun sendStopLossOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, stopPrice: BigDecimal, quantity: BigDecimal): Long {
         val params = mapOf(
                 Pair("symbol", symbolStr),
                 Pair("newClientOrderId", clientOrderId),
@@ -344,7 +345,7 @@ class BinanceClient(
         )
         return order(params)
     }
-    fun sendStopLossLimitOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, stopPrice: BigDecimal, limitPrice: BigDecimal, quantity: BigDecimal): Long {
+    suspend fun sendStopLossLimitOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, stopPrice: BigDecimal, limitPrice: BigDecimal, quantity: BigDecimal): Long {
         val params = mapOf(
                 Pair("symbol", symbolStr),
                 Pair("newClientOrderId", clientOrderId),
@@ -359,7 +360,7 @@ class BinanceClient(
         )
         return order(params)
     }
-    fun sendTakeProfitOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, stopPrice: BigDecimal, quantity: BigDecimal): Long {
+    suspend fun sendTakeProfitOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, stopPrice: BigDecimal, quantity: BigDecimal): Long {
         val params = mapOf(
                 Pair("symbol", symbolStr),
                 Pair("newClientOrderId", clientOrderId),
@@ -372,7 +373,7 @@ class BinanceClient(
         )
         return order(params)
     }
-    fun sendTakeProfitLimitOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, stopPrice: BigDecimal, limitPrice: BigDecimal, quantity: BigDecimal): Long {
+    suspend fun sendTakeProfitLimitOrderACK(symbolStr: String, clientOrderId: String, side: OrderSideEnum, stopPrice: BigDecimal, limitPrice: BigDecimal, quantity: BigDecimal): Long {
         val params = mapOf(
                 Pair("symbol", symbolStr),
                 Pair("newClientOrderId", clientOrderId),
@@ -388,17 +389,17 @@ class BinanceClient(
         return order(params)
     }
 
-    private fun order(params: Map<String, String>): Long {
+    private suspend fun order(params: Map<String, String>): Long {
         val path = "/api/v3/order"
         val (_,_,result) = Fuel.post(
                 path = domain + path,
                 parameters = params.toList().plus(Pair("signature", createSignature(params)))
-        ).responseString()
+        ).awaitStringResponseResult()
         System.out.println(result.get())
         return Jsonifier.readTree(result.get())["orderId"].longValue()
     }
 
-    fun cancelOrderByOrderId(symbolStr: String, orderId: Long, recvWindow: Int = 5000) {
+    suspend fun cancelOrderByOrderId(symbolStr: String, orderId: Long, recvWindow: Int = 5000) {
         val path = "/api/v3/order"
         val params = mapOf(
                 Pair("symbol", symbolStr),
@@ -409,10 +410,10 @@ class BinanceClient(
         val (_,_,result) = Fuel.delete(
                 path = domain + path,
                 parameters = params.toList().plus(Pair("signature", createSignature(params)))
-        ).responseString()
+        ).awaitStringResponseResult()
         System.out.println(result.get())
     }
-    fun cancelOrderByClientOrderId(symbolStr: String, clientOrderIdOfCancelTarget: String, recvWindow: Int = 5000) {
+    suspend fun cancelOrderByClientOrderId(symbolStr: String, clientOrderIdOfCancelTarget: String, recvWindow: Int = 5000) {
         val path = "/api/v3/order"
         val params = mapOf(
                 Pair("symbol", symbolStr),
@@ -423,10 +424,10 @@ class BinanceClient(
         val (_,_,result) = Fuel.delete(
                 path = domain + path,
                 parameters = params.toList().plus(Pair("signature", createSignature(params)))
-        ).responseString()
+        ).awaitStringResponseResult()
     }
 
-    fun queryOrder(symbolStr: String, clientOrderId: String, recvWindow: Int = 5000): Order {
+    suspend fun queryOrder(symbolStr: String, clientOrderId: String, recvWindow: Int = 5000): Order {
         val path = "/api/v3/order"
         val params = mapOf(
                 Pair("symbol", symbolStr),
@@ -437,7 +438,7 @@ class BinanceClient(
         val (_,_,result) = Fuel.get(
                 path = domain + path,
                 parameters = params.toList().plus(Pair("signature", createSignature(params)))
-        ).responseString()
+        ).awaitStringResponseResult()
         val jsonNode = Jsonifier.readTree(result.get())
         return Order(
                 symbol = symbolStr,
@@ -455,7 +456,7 @@ class BinanceClient(
                 isWorking = jsonNode["isWorking"].booleanValue()
         )
     }
-    fun queryOpenOrdersOfSymbol(symbolStr: String, recvWindow: Int = 5000): List<Order> {
+    suspend fun queryOpenOrdersOfSymbol(symbolStr: String, recvWindow: Int = 5000): List<Order> {
         val path = "/api/v3/openOrders"
         val params = mapOf(
                 Pair("symbol", symbolStr),
@@ -465,7 +466,7 @@ class BinanceClient(
         val (_,_,result) = Fuel.get(
                 path = domain + path,
                 parameters = params.toList().plus(Pair("signature", createSignature(params)))
-        ).responseString()
+        ).awaitStringResponseResult()
 
         val ordersArrayNode = Jsonifier.readTree(result.get()) as ArrayNode
         return ordersArrayNode.toList().map {jsonNode ->
@@ -486,7 +487,7 @@ class BinanceClient(
             )
         }
     }
-    fun queryOpenOrdersOfEverySymbols(recvWindow: Int = 5000): List<Order> {
+    suspend fun queryOpenOrdersOfEverySymbols(recvWindow: Int = 5000): List<Order> {
         val path = "/api/v3/openOrders"
         val params = mapOf(
                 Pair("timestamp", System.currentTimeMillis().toString()),
@@ -495,7 +496,7 @@ class BinanceClient(
         val (_,_,result) = Fuel.get(
                 path = domain + path,
                 parameters = params.toList().plus(Pair("signature", createSignature(params)))
-        ).responseString()
+        ).awaitStringResponseResult()
 
         val ordersArrayNode = Jsonifier.readTree(result.get()) as ArrayNode
         return ordersArrayNode.toList().map {jsonNode ->
@@ -516,7 +517,7 @@ class BinanceClient(
             )
         }
     }
-    fun queryAllOrders(symbolStr: String, limit: Int, recvWindow: Int = 5000): List<Order> {
+    suspend fun queryAllOrders(symbolStr: String, limit: Int, recvWindow: Int = 5000): List<Order> {
         val path = "/api/v3/allOrders"
         val confirmedLimit = maxOf(limit, 500)
         val params = mapOf(
@@ -528,7 +529,7 @@ class BinanceClient(
         val (_,_,result) = Fuel.get(
                 path = domain + path,
                 parameters = params.toList().plus(Pair("signature", createSignature(params)))
-        ).responseString()
+        ).awaitStringResponseResult()
 
         val ordersArrayNode = Jsonifier.readTree(result.get()) as ArrayNode
         return ordersArrayNode.toList().map {jsonNode ->
@@ -549,7 +550,7 @@ class BinanceClient(
             )
         }
     }
-    fun queryAllOrdersLowerBoundedOrderId(symbolStr: String, orderIdLowerBound: Long, limit: Int, recvWindow: Int = 5000): List<Order> {
+    suspend fun queryAllOrdersLowerBoundedOrderId(symbolStr: String, orderIdLowerBound: Long, limit: Int, recvWindow: Int = 5000): List<Order> {
         val path = "/api/v3/allOrders"
         val confirmedLimit = maxOf(limit, 500)
         val params = mapOf(
@@ -562,7 +563,7 @@ class BinanceClient(
         val (_,_,result) = Fuel.get(
                 path = domain + path,
                 parameters = params.toList().plus(Pair("signature", createSignature(params)))
-        ).responseString()
+        ).awaitStringResponseResult()
 
         val ordersArrayNode = Jsonifier.readTree(result.get()) as ArrayNode
         return ordersArrayNode.toList().map {jsonNode ->
@@ -584,7 +585,7 @@ class BinanceClient(
         }
     }
 
-    fun getAccountInfo(recvWindow: Int = 5000): AccountInfo {
+    suspend fun getAccountInfo(recvWindow: Int = 5000): AccountInfo {
         val path = "/api/v3/account"
         val params = mapOf(
                 Pair("timestamp", System.currentTimeMillis().toString()),
@@ -593,7 +594,7 @@ class BinanceClient(
         val (_,_,result) = Fuel.get(
                 path = domain + path,
                 parameters = params.toList().plus(Pair("signature", createSignature(params)))
-        ).responseString()
+        ).awaitStringResponseResult()
         val jsonNode = Jsonifier.readTree(result.get())
         return AccountInfo(
                 makerCommission = jsonNode["makerCommission"].intValue(),
@@ -614,7 +615,7 @@ class BinanceClient(
         )
     }
 
-    fun getMyRecentTrades(symbolStr: String, limit: Int, recvWindow: Int = 5000): List<MyTrade> {
+    suspend fun getMyRecentTrades(symbolStr: String, limit: Int, recvWindow: Int = 5000): List<MyTrade> {
         val path = "/api/v3/myTrades"
         val confirmedLimit = maxOf(limit, 500)
         val params = mapOf(
@@ -626,7 +627,7 @@ class BinanceClient(
         val (_,_,result) = Fuel.get(
                 path = domain + path,
                 parameters = params.toList().plus(Pair("signature", createSignature(params)))
-        ).responseString()
+        ).awaitStringResponseResult()
 
         val myTradeArrayNode = Jsonifier.readTree(result.get()) as ArrayNode
         return myTradeArrayNode.toList().map {
@@ -645,7 +646,7 @@ class BinanceClient(
         }
     }
 
-    fun getMyTradesWithLowerBoundTradeId(symbolStr: String, tradeIdLowerBound: Long, limit: Int, recvWindow: Int = 5000): List<MyTrade> {
+    suspend fun getMyTradesWithLowerBoundTradeId(symbolStr: String, tradeIdLowerBound: Long, limit: Int, recvWindow: Int = 5000): List<MyTrade> {
         val path = "/api/v3/myTrades"
         val confirmedLimit = maxOf(limit, 500)
         val params = mapOf(
@@ -658,7 +659,7 @@ class BinanceClient(
         val (_,_,result) = Fuel.get(
                 path = domain + path,
                 parameters = params.toList().plus(Pair("signature", createSignature(params)))
-        ).responseString()
+        ).awaitStringResponseResult()
 
         val myTradeArrayNode = Jsonifier.readTree(result.get()) as ArrayNode
         return myTradeArrayNode.toList().map {

@@ -1,11 +1,12 @@
 package com.turbo
 
-import com.turbo.binance.BinanceClient
-import com.turbo.binance.enum.OrderSideEnum
-import java.math.BigDecimal
-import java.util.*
+import com.turbo.newton.DelayEvent
+import com.turbo.newton.Event
+import com.turbo.newton.EventManager
+import kotlinx.coroutines.runBlocking
 
-fun main(args : Array<String>) {
+fun main() = runBlocking {
+    /*
     val prop = Properties()
     prop.load(ClassLoader.getSystemResourceAsStream("application.properties"))
     val binanceClient = BinanceClient(
@@ -21,16 +22,23 @@ fun main(args : Array<String>) {
     System.out.println(balance_BCC)
     val symbol_BCCBTC = exchangeInt.symbols.find { it.symbol == "BCCBTC" }!!
     System.out.println(symbol_BCCBTC)
-    val priceTicker_BCCBTC = binanceClient.getPriceTickerOfSymbol("BCCBTC")
-
-    val orderResult = binanceClient.sendTakeProfitLimitOrderACK(
-            symbolStr = "BCCBTC",
-            clientOrderId = "Test" + System.currentTimeMillis().toString(),
-            side = OrderSideEnum.BUY,
-            stopPrice = priceTicker_BCCBTC.price - symbol_BCCBTC.tickSize - symbol_BCCBTC.tickSize - symbol_BCCBTC.tickSize,
-            limitPrice = priceTicker_BCCBTC.price - symbol_BCCBTC.tickSize - symbol_BCCBTC.tickSize - symbol_BCCBTC.tickSize,
-            quantity = BigDecimal("0.008")
+    val mkt = Market(
+            symbol = symbol_BCCBTC,
+            allocatedBaseAsset = BigDecimal.ZERO,
+            baseAssetBalance = BigDecimal.ZERO,
+            orders = emptyList(),
+            quoteAssetBalance = BigDecimal.ZERO
     )
-    System.out.println(orderResult)
-    binanceClient.cancelOrderByOrderId("BCCBTC", orderResult)
+    System.out.println(mkt)
+    */
+
+    val eventQueue = mutableListOf<MutableList<Event>>(
+            mutableListOf(DelayEvent(400), DelayEvent(200)),
+            mutableListOf(DelayEvent(4000), DelayEvent(2000))
+    )
+    EventManager(
+            stepMillis = 1000,
+            eventQueue = eventQueue
+    ).start()
 }
+
