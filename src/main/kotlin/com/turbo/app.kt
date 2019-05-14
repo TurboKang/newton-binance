@@ -1,12 +1,14 @@
 package com.turbo
-
-import com.turbo.newton.DelayEvent
-import com.turbo.newton.Event
+import com.turbo.binance.BinanceClient
 import com.turbo.newton.EventManager
+import com.turbo.newton.RsiStrategy
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.util.*
 
 fun main() = runBlocking {
-    /*
     val prop = Properties()
     prop.load(ClassLoader.getSystemResourceAsStream("application.properties"))
     val binanceClient = BinanceClient(
@@ -14,6 +16,7 @@ fun main() = runBlocking {
             apiKey = prop.getProperty("binance.key"),
             apiSecret = prop.getProperty("binance.secret")
     )
+    /*
     System.out.println(binanceClient.getServerTime() - System.currentTimeMillis())
     val exchangeInt = binanceClient.getExchangeInfo()
     val accountInfo = binanceClient.getAccountInfo()
@@ -32,13 +35,21 @@ fun main() = runBlocking {
     System.out.println(mkt)
     */
 
-    val eventQueue = mutableListOf<MutableList<Event>>(
-            mutableListOf(DelayEvent(400), DelayEvent(200)),
-            mutableListOf(DelayEvent(4000), DelayEvent(2000))
+    val eventQueue = mutableListOf(
+            mutableListOf( suspend { delay(4000) })
     )
-    EventManager(
+    val eventManager = EventManager(
             stepMillis = 1000,
             eventQueue = eventQueue
-    ).start()
+    )
+
+    val rsiStrategy = RsiStrategy(
+            binanceClient = binanceClient,
+            eventManager = eventManager
+    )
+
+    rsiStrategy.run()
+
+    eventManager.start()
 }
 

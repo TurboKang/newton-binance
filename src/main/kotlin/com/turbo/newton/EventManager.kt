@@ -6,7 +6,7 @@ import java.time.LocalDateTime
 
 class EventManager(
         val stepMillis: Long,
-        val eventQueue: MutableList<MutableList<Event>>
+        val eventQueue: MutableList<MutableList<suspend () -> Unit>>
 ) {
     private var currentStep = 0
 
@@ -15,22 +15,19 @@ class EventManager(
     }
     suspend fun start() {
         while (true) {
-            logger.debug("Step $currentStep Start : ${LocalDateTime.now()}")
+            logger.info("Step $currentStep Start : ${LocalDateTime.now()}")
             coroutineScope {
-                val events = eventQueue[0]
+                val suspendFunctions = eventQueue[0]
                 val minimalWait = launch {
-                    DelayEvent(stepMillis).run()
+                    delay(stepMillis)
                 }
-                val jobs = events.forEach {
-                    launch {
-                        val futures = it.run()
-                        futures.forEach {
-                            future -> bookFuture(future)
-                        }
+                suspendFunctions.forEach {
+                    suspendFunction -> launch {
+                        suspendFunction()
                     }
                 }
             }
-            logger.debug("Step $currentStep End : ${LocalDateTime.now()}")
+            logger.info("Step $currentStep End : ${LocalDateTime.now()}")
             currentStep++
             eventQueue.removeAt(0)
             allocateMinimumStep(1)
@@ -40,19 +37,19 @@ class EventManager(
     private fun allocateMinimumStep(minimumSteps: Int) {
         if(eventQueue.size <= minimumSteps) {
             logger.debug("AllocateMinimumStep : ${minimumSteps - eventQueue.size + 1}")
-            (0..(minimumSteps - eventQueue.size)).forEach { _ ->
+            (0..(minimumSteps - eventQueue.size)).forEach {
                 eventQueue.add(mutableListOf())
             }
         }
     }
 
-    fun bookFuture(future: Future) {
-        val delayStep = if(future.delayMillis < stepMillis) {
+    fun bookFuture(delayMillis: Int, future: suspend () -> Unit) {
+        val delayStep = if(delayMillis < stepMillis) {
             1
         } else {
-            future.delayMillis / stepMillis
+            delayMillis / stepMillis
         }.toInt()
         allocateMinimumStep(delayStep)
-        eventQueue[delayStep].add(future.event)
+        eventQueue[delayStep].add(future)
     }
 }
