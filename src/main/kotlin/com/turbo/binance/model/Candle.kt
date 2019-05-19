@@ -1,15 +1,13 @@
 package com.turbo.binance.model
 
-import com.sun.tools.corba.se.idl.constExpr.Expression.one
 import org.ta4j.core.Bar
 import org.ta4j.core.BaseBar
-import org.ta4j.core.num.Num
 import org.ta4j.core.num.PrecisionNum
 import java.math.BigDecimal
 import java.time.Duration
 import java.time.ZonedDateTime
 
-data class Candle(
+class Candle(
         val openTime: ZonedDateTime,
         val closeTime: ZonedDateTime,
         val highPrice: BigDecimal,
