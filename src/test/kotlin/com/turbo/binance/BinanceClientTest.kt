@@ -1,6 +1,7 @@
 package com.turbo.binance
 
 import com.turbo.binance.enum.CandleIntervalEnum
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert
 import org.junit.Before
@@ -9,6 +10,7 @@ import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 import java.util.*
 
 class BinanceClientTest {
@@ -99,16 +101,20 @@ class BinanceClientTest {
     fun getCandles() {
         runBlocking {
             val exchangeInfo = binanceClient.getExchangeInfo()
-            val limit = 500
-            val candles = binanceClient.getCandles(
-                    symbolStr = exchangeInfo.symbols[0].symbol,
-                    firstCandleOpenZonedDateTime = ZonedDateTime.of(LocalDateTime.of(2018, 1, 1, 0, 0, 0), ZoneId.systemDefault()),
-                    lastCandleOpenZonedDateTime = ZonedDateTime.of(LocalDateTime.of(2018, 1, 1, 1, 0, 0), ZoneId.systemDefault()),
-                    interval = CandleIntervalEnum.MINUTE_3,
-                    limit = limit
-            )
-            Assert.assertNotNull(candles)
-            Assert.assertTrue(candles.size <= limit)
+            val limit = 1000
+                val candles = binanceClient.getCandles(
+                        symbolStr = exchangeInfo.symbols[0].symbol,
+                        firstCandleOpenZonedDateTime = null,
+                        lastCandleOpenZonedDateTime = null,
+                        interval = CandleIntervalEnum.MINUTE_1,
+                        limit = limit
+                )
+                Assert.assertNotNull(candles)
+//                Assert.assertTrue(candles.size <= limit)
+                System.out.println(candles.first())
+                System.out.println(candles.last())
+                System.out.println(candles.size)
+                System.out.println(ChronoUnit.MINUTES.between(candles.first().openTime, candles.last().openTime))
         }
     }
     @Test

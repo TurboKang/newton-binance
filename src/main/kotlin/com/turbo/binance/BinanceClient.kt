@@ -14,10 +14,7 @@ import org.apache.commons.codec.binary.Hex
 import org.slf4j.LoggerFactory
 import java.math.BigDecimal
 import java.nio.charset.Charset
-import java.time.Duration
-import java.time.Instant
-import java.time.ZoneId
-import java.time.ZonedDateTime
+import java.time.*
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
@@ -84,7 +81,7 @@ class BinanceClient(
     }
 
     suspend fun getTrades(symbolStr: String, limit: Int): List<Trade> {
-        val confirmedLimit = maxOf(limit, 500)
+      val confirmedLimit = minOf(limit, 1000)
         val path = "/api/v1/trades"
         val (_,_,result) = Fuel.get(
                 path = domain + path,
@@ -105,7 +102,7 @@ class BinanceClient(
     }
 
     suspend fun getHistoricalTradesFromToRecent(symbolStr: String, limit: Int, fromIdInclusive: Long): List<Trade> {
-        val confirmedLimit = maxOf(limit, 500)
+      val confirmedLimit = minOf(limit, 1000)
         val path = "/api/v1/historicalTrades"
         val (_,_,result) = Fuel.get(
                 path = domain + path,
@@ -127,7 +124,7 @@ class BinanceClient(
     }
 
     suspend fun getAggregateTrade(symbolStr: String, /*fromIdInclusive: Long,*/ startZonedDateTime: ZonedDateTime, duration: Duration, limit: Int): List<AggregateTrade> {
-        val confirmedLimit = maxOf(limit, 500)
+      val confirmedLimit = minOf(limit, 1000)
         val endZonedDateTime = startZonedDateTime.plus(if(duration > Duration.ofDays(1)) {
             Duration.ofDays(1)
         } else {
@@ -157,18 +154,29 @@ class BinanceClient(
         ) }
     }
 
-    suspend fun getCandles(symbolStr: String, interval: CandleIntervalEnum, limit: Int, firstCandleOpenZonedDateTime: ZonedDateTime, lastCandleOpenZonedDateTime: ZonedDateTime): List<Candle> {
-        val confirmedLimit = maxOf(limit, 500)
-        val path = "/api/v1/klines"
+    suspend fun getCandles(symbolStr: String, interval: CandleIntervalEnum, limit: Int, firstCandleOpenZonedDateTime: ZonedDateTime?, lastCandleOpenZonedDateTime: ZonedDateTime?): List<Candle> {
+      val confirmedLimit = minOf(limit, 1000)
+      val path = "/api/v1/klines"
+      val parameters = mutableListOf(
+          Pair("symbol", symbolStr),
+          Pair("interval", interval.toString()),
+          Pair("limit", confirmedLimit.toString())
+      )
+        when {
+            firstCandleOpenZonedDateTime != null && lastCandleOpenZonedDateTime != null -> {
+              parameters.add(Pair("startTime", (firstCandleOpenZonedDateTime.toEpochSecond()*1000L).toString()))
+              parameters.add(Pair("endTime", (lastCandleOpenZonedDateTime.toEpochSecond()*1000L).toString()))
+            }
+          firstCandleOpenZonedDateTime == null && lastCandleOpenZonedDateTime != null ->
+                parameters.add(Pair("endTime", (lastCandleOpenZonedDateTime.toEpochSecond()*1000L).toString()))
+          firstCandleOpenZonedDateTime != null && lastCandleOpenZonedDateTime == null ->
+                parameters.add(Pair("startTime", (firstCandleOpenZonedDateTime.toEpochSecond()*1000L).toString()))
+          else -> { }
+        }
+
         val (_,_,result) = Fuel.get(
                 path = domain + path,
-                parameters = listOf(
-                        Pair("symbol", symbolStr),
-                        Pair("interval", interval.toString()),
-                        Pair("limit", confirmedLimit.toString()),
-                        Pair("startTime", (firstCandleOpenZonedDateTime.toEpochSecond()*1000L).toString()),
-                        Pair("endTime", (lastCandleOpenZonedDateTime.toEpochSecond()*1000L).toString())
-                )
+                parameters = parameters.toList()
         ).awaitStringResponseResult()
         val candleArrayNode = Jsonifier.readTree(result.get())
         return candleArrayNode.map { Candle(
@@ -519,7 +527,7 @@ class BinanceClient(
     }
     suspend fun queryAllOrders(symbolStr: String, limit: Int, recvWindow: Int = 5000): List<Order> {
         val path = "/api/v3/allOrders"
-        val confirmedLimit = maxOf(limit, 500)
+        val confirmedLimit = minOf(limit, 1000)
         val params = mapOf(
                 Pair("symbol", symbolStr),
                 Pair("limit", confirmedLimit.toString()),
@@ -552,7 +560,7 @@ class BinanceClient(
     }
     suspend fun queryAllOrdersLowerBoundedOrderId(symbolStr: String, orderIdLowerBound: Long, limit: Int, recvWindow: Int = 5000): List<Order> {
         val path = "/api/v3/allOrders"
-        val confirmedLimit = maxOf(limit, 500)
+        val confirmedLimit = minOf(limit, 1000)
         val params = mapOf(
                 Pair("symbol", symbolStr),
                 Pair("limit", confirmedLimit.toString()),
@@ -617,7 +625,7 @@ class BinanceClient(
 
     suspend fun getMyRecentTrades(symbolStr: String, limit: Int, recvWindow: Int = 5000): List<MyTrade> {
         val path = "/api/v3/myTrades"
-        val confirmedLimit = maxOf(limit, 500)
+        val confirmedLimit = minOf(limit, 1000)
         val params = mapOf(
                 Pair("symbol", symbolStr),
                 Pair("limit", confirmedLimit.toString()),
@@ -648,7 +656,7 @@ class BinanceClient(
 
     suspend fun getMyTradesWithLowerBoundTradeId(symbolStr: String, tradeIdLowerBound: Long, limit: Int, recvWindow: Int = 5000): List<MyTrade> {
         val path = "/api/v3/myTrades"
-        val confirmedLimit = maxOf(limit, 500)
+      val confirmedLimit = minOf(limit, 1000)
         val params = mapOf(
                 Pair("symbol", symbolStr),
                 Pair("fromId", tradeIdLowerBound.toString()),
