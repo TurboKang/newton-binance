@@ -3,18 +3,12 @@ import com.turbo.binance.BinanceClient
 import com.turbo.binance.model.Symbol
 import com.turbo.newton.EventManager
 import com.turbo.newton.RsiStrategy
-import com.turbo.newton.db.CandleHistories
-import com.turbo.newton.db.CandleHistory
-import com.turbo.newton.db.HistoryGroup
-import com.turbo.newton.db.HistoryGroups
+import com.turbo.newton.db.*
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.StdOutSqlLogger
-import org.jetbrains.exposed.sql.addLogger
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
@@ -31,28 +25,15 @@ fun main() = runBlocking {
       apiSecret = prop.getProperty("binance.secret")
   )
 
-  Database.connect(
+  DatabaseManager.connect(
       url = prop.getProperty("database.url"),
       user = prop.getProperty("database.user"),
       password = prop.getProperty("database.password"),
-      driver = prop.getProperty("database.driver")
+      driver = prop.getProperty("database.driver"),
+      withClean = true
   )
 
   transaction {
-    addLogger(StdOutSqlLogger)
-
-    val conn = TransactionManager.current().connection
-    val statement = conn.createStatement()
-    statement.execute("SET FOREIGN_KEY_CHECKS = 0")
-
-    SchemaUtils.drop(HistoryGroups)
-    SchemaUtils.create(HistoryGroups)
-
-    SchemaUtils.drop(CandleHistories)
-    SchemaUtils.create(CandleHistories)
-
-    statement.execute("SET FOREIGN_KEY_CHECKS = 1")
-
     val hg = HistoryGroup.new {
       quoteAsset = "BTC"
       baseAsset = "USDT"

@@ -4,10 +4,45 @@ import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.IntIdTable
-import org.jetbrains.exposed.sql.Column
-import org.jetbrains.exposed.sql.CurrentDateTime
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.transactions.TransactionManager
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import java.math.BigDecimal
+
+object DatabaseManager {
+  fun connect(url: String, user: String, password: String, driver: String, withClean: Boolean) {
+    Database.connect(
+        url = url,
+        user = user,
+        password = password,
+        driver = driver
+    )
+    transaction {
+      addLogger(StdOutSqlLogger)
+      if(withClean) {
+        clean()
+      }
+    }
+  }
+  private fun clean() {
+    val conn = TransactionManager.current().connection
+    val statement = conn.createStatement()
+    statement.execute("SET FOREIGN_KEY_CHECKS = 0")
+
+    val listOfTable = listOf(
+        HistoryGroups,
+        CandleHistories
+    )
+
+    listOfTable.forEach {table ->
+      SchemaUtils.drop(table)
+      SchemaUtils.create(table)
+    }
+
+    statement.execute("SET FOREIGN_KEY_CHECKS = 1")
+  }
+}
 
 object HistoryGroups : IntIdTable() {
   val quoteAsset: Column<String> = varchar(name = "quoteAsset", collate = "utf8_general_ci", length = 5)
