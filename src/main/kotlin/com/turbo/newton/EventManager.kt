@@ -15,7 +15,6 @@ class EventManager(
     }
     suspend fun start() {
         while (true) {
-            logger.info("Step $currentStep Start : ${LocalDateTime.now()}")
             coroutineScope {
                 val suspendFunctions = eventQueue[0]
                 val minimalWait = launch {
@@ -27,7 +26,6 @@ class EventManager(
                     }
                 }
             }
-            logger.info("Step $currentStep End : ${LocalDateTime.now()}")
             currentStep++
             eventQueue.removeAt(0)
             allocateMinimumStep(1)

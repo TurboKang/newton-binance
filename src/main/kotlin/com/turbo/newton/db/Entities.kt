@@ -1,5 +1,7 @@
 package com.turbo.newton.db
 
+import com.turbo.binance.model.Candle
+import com.turbo.toJodaDateTime
 import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
@@ -8,9 +10,60 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
+import org.joda.time.DateTimeZone
 import java.math.BigDecimal
+import java.time.ZonedDateTime
+import java.util.*
 
 object DatabaseManager {
+
+  fun insertHistoryGroup(_quoteAsset: String, _baseAsset: String, _description: String): HistoryGroup {
+    val hg = HistoryGroup.new {
+      quoteAsset = _quoteAsset
+      baseAsset = _baseAsset
+      description = _description
+      registeredDatetime = DateTime.now()
+    }
+    return hg
+  }
+
+  fun selectHistoryGroup(): List<HistoryGroup> {
+    return HistoryGroup.all().asSequence().toList()
+  }
+
+  fun insertCandleHistory(hg: HistoryGroup, candle: Candle): CandleHistory {
+    val candleHistory = CandleHistory.new {
+      historyGroup = hg
+      openTime = candle.openTime.toJodaDateTime()
+      closeTime = candle.closeTime.toJodaDateTime()
+      highPrice = candle.highPrice
+      lowPrice = candle.lowPrice
+      openPrice = candle.openPrice
+      closePrice = candle.closePrice
+      volume = candle.volume
+      quoteAssetVolume = candle.quoteAssetVolume
+      numberOfTrades = candle.numberOfTrades
+      takerBuyBaseAssetVolume = candle.takerBuyBaseAssetVolume
+      takerBuyQuoteAssetVolume = candle.takerBuyQuoteAssetVolume
+      ignore = candle.ignore
+    }
+    return candleHistory
+  }
+
+  fun selectCandleHistoryByHistoryGroup(historyGroupId: Int): List<Candle> {
+    val listOfCandleHistory = CandleHistory.find { CandleHistories.historyGroup eq historyGroupId }.sortedBy { it.openTime }.asSequence().toList()
+    return listOfCandleHistory.map { Candle.buildFromCandleHistory(it) }
+  }
+
+  fun selectCandleHistoryByHistoryGroupAndDuration(historyGroupId: Int, startInclusive: ZonedDateTime, endExclusive: ZonedDateTime): List<Candle> {
+    val listOfCandleHistory = CandleHistory.find {
+      (CandleHistories.historyGroup eq historyGroupId) and
+          (CandleHistories.openTime greaterEq startInclusive.toJodaDateTime()) and
+          (CandleHistories.openTime less endExclusive.toJodaDateTime())
+    }.sortedBy { it.openTime }.asSequence().toList()
+    return listOfCandleHistory.map { Candle.buildFromCandleHistory(it) }
+  }
+
   fun connect(url: String, user: String, password: String, driver: String, withClean: Boolean) {
     Database.connect(
         url = url,
@@ -45,8 +98,8 @@ object DatabaseManager {
 }
 
 object HistoryGroups : IntIdTable() {
-  val quoteAsset: Column<String> = varchar(name = "quoteAsset", collate = "utf8_general_ci", length = 5)
-  val baseAsset: Column<String> = varchar(name = "baseAsset", collate = "utf8_general_ci", length = 5)
+  val quoteAsset: Column<String> = varchar(name = "quoteAsset", collate = "utf8_general_ci", length = 20)
+  val baseAsset: Column<String> = varchar(name = "baseAsset", collate = "utf8_general_ci", length = 20)
   val description: Column<String> = text(name = "description", collate = "utf8_general_ci")
   val registeredDatetime = datetime("registeredDatetime")
 }

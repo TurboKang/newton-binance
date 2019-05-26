@@ -16,18 +16,28 @@ data class Chart(
     when {
       candles.last().openTime == candle.openTime -> candles[candles.size-1] = candle
       candles.last().closeTime.plusNanos(1000000) == candle.openTime -> candles.add(candle)
-      else -> logger.error("Current CloseTime: ${candles.last().closeTime} < NewCandle CloseTime: ${candle.closeTime}")
     }
   }
 
+  fun getLastCandle(): Candle {
+    return candles.last()
+  }
+
   fun getMergedCandleChart(duration: Duration): Chart {
+    val a = System.currentTimeMillis()
     val chunkSize = duration.toNanos() / Duration.ofMinutes(1).toNanos()
-    return Chart(
-        candles
-            .chunked(chunkSize.toInt())
-            .map { Candle.merge(it) }
-            .toMutableList()
-    )
+    val ret = if(chunkSize != 1L) {
+      Chart(
+          candles
+              .chunked(chunkSize.toInt())
+              .map { Candle.merge(it) }
+              .toMutableList()
+      )
+    } else {
+      this
+    }
+    System.out.println("MergeCandle: " + (System.currentTimeMillis() - a))
+    return ret
   }
 
   fun fastStochasticValue(barCount: Int): BigDecimal? {
@@ -61,7 +71,7 @@ data class Chart(
       val maxClosePrice = scopedCandles.map { it.closePrice }.max()!!
       val numerator = scopedCandles.last().closePrice - minClosePrice
       val denominator = maxClosePrice - minClosePrice
-      return numerator / denominator
+      return numerator / denominator * BigDecimal(100)
     }
   }
 }

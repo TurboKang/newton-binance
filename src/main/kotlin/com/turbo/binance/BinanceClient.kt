@@ -22,7 +22,7 @@ class BinanceClient(
         private val domain: String,
         private val apiKey: String,
         private val apiSecret: String
-) {
+): BinanceInterface {
     init {
         FuelManager.instance.baseHeaders = mapOf(
                 Pair("X-MBX-APIKEY", apiKey)
@@ -154,7 +154,7 @@ class BinanceClient(
         ) }
     }
 
-    suspend fun getCandles(symbolStr: String, interval: CandleIntervalEnum, limit: Int, firstCandleOpenZonedDateTime: ZonedDateTime?, lastCandleOpenZonedDateTime: ZonedDateTime?): List<Candle> {
+    override suspend fun getCandles(symbolStr: String, interval: CandleIntervalEnum, limit: Int, firstCandleOpenZonedDateTime: ZonedDateTime?, lastCandleOpenZonedDateTime: ZonedDateTime?): List<Candle> {
       val confirmedLimit = minOf(limit, 1000)
       val path = "/api/v1/klines"
       val parameters = mutableListOf(
@@ -162,37 +162,37 @@ class BinanceClient(
           Pair("interval", interval.toString()),
           Pair("limit", confirmedLimit.toString())
       )
-        when {
-            firstCandleOpenZonedDateTime != null && lastCandleOpenZonedDateTime != null -> {
-              parameters.add(Pair("startTime", (firstCandleOpenZonedDateTime.toEpochSecond()*1000L).toString()))
-              parameters.add(Pair("endTime", (lastCandleOpenZonedDateTime.toEpochSecond()*1000L).toString()))
-            }
-          firstCandleOpenZonedDateTime == null && lastCandleOpenZonedDateTime != null ->
-                parameters.add(Pair("endTime", (lastCandleOpenZonedDateTime.toEpochSecond()*1000L).toString()))
-          firstCandleOpenZonedDateTime != null && lastCandleOpenZonedDateTime == null ->
-                parameters.add(Pair("startTime", (firstCandleOpenZonedDateTime.toEpochSecond()*1000L).toString()))
-          else -> { }
+      when {
+        firstCandleOpenZonedDateTime != null && lastCandleOpenZonedDateTime != null -> {
+          parameters.add(Pair("startTime", (firstCandleOpenZonedDateTime.toEpochSecond()*1000L).toString()))
+          parameters.add(Pair("endTime", (lastCandleOpenZonedDateTime.toEpochSecond()*1000L).toString()))
         }
+        firstCandleOpenZonedDateTime == null && lastCandleOpenZonedDateTime != null ->
+          parameters.add(Pair("endTime", (lastCandleOpenZonedDateTime.toEpochSecond()*1000L).toString()))
+        firstCandleOpenZonedDateTime != null && lastCandleOpenZonedDateTime == null ->
+          parameters.add(Pair("startTime", (firstCandleOpenZonedDateTime.toEpochSecond()*1000L).toString()))
+        else -> { }
+      }
 
-        val (_,_,result) = Fuel.get(
-                path = domain + path,
-                parameters = parameters.toList()
-        ).awaitStringResponseResult()
-        val candleArrayNode = Jsonifier.readTree(result.get())
-        return candleArrayNode.map { Candle(
-                openTime = Instant.ofEpochMilli(it[0].longValue()).atZone(ZoneId.systemDefault()),
-                closeTime = Instant.ofEpochMilli(it[6].longValue()).atZone(ZoneId.systemDefault()),
-                highPrice = BigDecimal(it[1].textValue()),
-                lowPrice = BigDecimal(it[2].textValue()),
-                openPrice = BigDecimal(it[3].textValue()),
-                closePrice = BigDecimal(it[4].textValue()),
-                volume = BigDecimal(it[5].textValue()),
-                quoteAssetVolume = BigDecimal(it[7].textValue()),
-                numberOfTrades = it[8].intValue(),
-                takerBuyBaseAssetVolume = BigDecimal(it[9].textValue()),
-                takerBuyQuoteAssetVolume = BigDecimal(it[10].textValue()),
-                ignore = BigDecimal(it[11].textValue())
-        ) }
+      val (_,_,result) = Fuel.get(
+          path = domain + path,
+          parameters = parameters.toList()
+      ).awaitStringResponseResult()
+      val candleArrayNode = Jsonifier.readTree(result.get())
+      return candleArrayNode.map { Candle(
+          openTime = Instant.ofEpochMilli(it[0].longValue()).atZone(ZoneId.systemDefault()),
+          closeTime = Instant.ofEpochMilli(it[6].longValue()).atZone(ZoneId.systemDefault()),
+          highPrice = BigDecimal(it[1].textValue()),
+          lowPrice = BigDecimal(it[2].textValue()),
+          openPrice = BigDecimal(it[3].textValue()),
+          closePrice = BigDecimal(it[4].textValue()),
+          volume = BigDecimal(it[5].textValue()),
+          quoteAssetVolume = BigDecimal(it[7].textValue()),
+          numberOfTrades = it[8].intValue(),
+          takerBuyBaseAssetVolume = BigDecimal(it[9].textValue()),
+          takerBuyQuoteAssetVolume = BigDecimal(it[10].textValue()),
+          ignore = BigDecimal(it[11].textValue())
+      ) }
     }
 
     suspend fun get24HourStatOfSymbol(symbolStr: String): Stat24Hour {

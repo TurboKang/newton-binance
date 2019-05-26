@@ -30,53 +30,8 @@ fun main() = runBlocking {
       user = prop.getProperty("database.user"),
       password = prop.getProperty("database.password"),
       driver = prop.getProperty("database.driver"),
-      withClean = true
+      withClean = false
   )
-
-  transaction {
-    val hg = HistoryGroup.new {
-      quoteAsset = "BTC"
-      baseAsset = "USDT"
-      description = "testtest"
-      registeredDatetime = DateTime.now()
-    }
-
-    CandleHistory.new {
-      historyGroup = hg
-      openTime = DateTime.now().minusMinutes(1)
-      closeTime = DateTime.now()
-      highPrice = BigDecimal(1000.12345678)
-      lowPrice = BigDecimal(400.12345678)
-      openPrice = BigDecimal(500)
-      closePrice = BigDecimal(700)
-      volume = BigDecimal(100000)
-      quoteAssetVolume = BigDecimal(200000)
-      numberOfTrades = 30512
-      takerBuyBaseAssetVolume = BigDecimal(0.12345678)
-      takerBuyQuoteAssetVolume = BigDecimal(0.12345678)
-      ignore = BigDecimal.ZERO
-    }
-    CandleHistory.new {
-      historyGroup = hg
-      openTime = DateTime.now().minusMinutes(1)
-      closeTime = DateTime.now()
-      highPrice = BigDecimal(1000.12345678)
-      lowPrice = BigDecimal(400.12345678)
-      openPrice = BigDecimal(500)
-      closePrice = BigDecimal(700)
-      volume = BigDecimal(100000)
-      quoteAssetVolume = BigDecimal(200000)
-      numberOfTrades = 30512
-      takerBuyBaseAssetVolume = BigDecimal(0.12345678)
-      takerBuyQuoteAssetVolume = BigDecimal(0.12345678)
-      ignore = BigDecimal.ZERO
-    }
-
-    val candles = CandleHistory.find { CandleHistories.historyGroup eq hg.id }
-    candles.iterator().forEach {
-      System.out.println(it)
-    }
-  }
 
   System.out.println(binanceClient.getServerTime() - System.currentTimeMillis())
   val exchangeInt = binanceClient.getExchangeInfo()
@@ -101,7 +56,7 @@ fun main() = runBlocking {
       symbol = symbol_BCCBTC
   )
 
-  rsiStrategy1.run()
+  eventManager.bookFuture(1000, suspend { rsiStrategy1.run() })
 
   eventManager.start()
 }

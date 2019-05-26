@@ -1,8 +1,7 @@
 package com.turbo.binance.model
 
-import org.ta4j.core.Bar
-import org.ta4j.core.BaseBar
-import org.ta4j.core.num.PrecisionNum
+import com.turbo.newton.db.CandleHistory
+import com.turbo.toJSR310LocalDateTime
 import java.math.BigDecimal
 import java.time.Duration
 import java.time.ZonedDateTime
@@ -28,7 +27,7 @@ class Candle(
 
     fun merge(listOfCandle: List<Candle>): Candle {
       val sortedListOfCandle = listOfCandle.sortedBy { it.openTime }
-      return Candle(
+      val mergedCandle =  Candle(
           openTime = sortedListOfCandle.first().openTime,
           closeTime = sortedListOfCandle.last().closeTime,
           highPrice = sortedListOfCandle.map { it.highPrice }.max()!!,
@@ -42,6 +41,24 @@ class Candle(
           takerBuyQuoteAssetVolume = sortedListOfCandle.map { it.takerBuyQuoteAssetVolume }.fold(BigDecimal.ZERO, BigDecimal::add),
           ignore = sortedListOfCandle.map { it.ignore }.fold(BigDecimal.ZERO, BigDecimal::add)
       )
+      return mergedCandle
+    }
+
+    fun buildFromCandleHistory(candleHistory: CandleHistory): Candle {
+      return Candle(
+          openTime = candleHistory.openTime.toJSR310LocalDateTime(),
+          closeTime = candleHistory.closeTime.toJSR310LocalDateTime(),
+          highPrice = candleHistory.highPrice,
+          lowPrice = candleHistory.lowPrice,
+          openPrice = candleHistory.openPrice,
+          closePrice = candleHistory.closePrice,
+          volume = candleHistory.volume,
+          quoteAssetVolume = candleHistory.quoteAssetVolume,
+          numberOfTrades = candleHistory.numberOfTrades,
+          takerBuyBaseAssetVolume = candleHistory.takerBuyBaseAssetVolume,
+          takerBuyQuoteAssetVolume = candleHistory.takerBuyQuoteAssetVolume,
+          ignore = candleHistory.ignore
+      )
     }
   }
 
@@ -52,18 +69,5 @@ class Candle(
 
   val duration:Duration get() {
     return Duration.between(openTime, closeTime)
-  }
-
-  fun toBar(): Bar {
-    return BaseBar(
-        duration,
-        closeTime,
-        PrecisionNum.valueOf(openPrice),
-        PrecisionNum.valueOf(highPrice),
-        PrecisionNum.valueOf(lowPrice),
-        PrecisionNum.valueOf(closePrice),
-        PrecisionNum.valueOf(volume),
-        PrecisionNum.valueOf(quoteAssetVolume)
-    )
   }
 }
