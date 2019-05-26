@@ -33,7 +33,7 @@ class BinanceMock(
       }
       candles = DatabaseManager.selectCandleHistoryByHistoryGroupAndDuration(historyGroup.id.value, confirmedStart, confirmedEnd)
     }
-    System.out.println("Query: " + (System.currentTimeMillis() - a))
+//    System.out.println("Query: " + (System.currentTimeMillis() - a))
     return candles
   }
 }

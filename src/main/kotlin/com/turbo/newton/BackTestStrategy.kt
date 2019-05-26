@@ -140,15 +140,21 @@ class BackTestStrategy(
   }
 
   private fun evalShortTermTrendValue(chart: Chart): Double {
-    return chart.getMergedCandleChart(shortTerm).slowStochsticValue(5,3).toDouble()
+    val barCount = 5
+    val movingAverageSize = 3
+    return chart.getMergedCandleChart(shortTerm, barCount+movingAverageSize+2).slowStochsticValue(5,3).toDouble()
   }
 
   private fun evalMidTermTrendValue(chart: Chart): Double {
-    return chart.getMergedCandleChart(midTerm).slowStochsticValue(5,3).toDouble()
+    val barCount = 5
+    val movingAverageSize = 3
+    return chart.getMergedCandleChart(midTerm, barCount+movingAverageSize+2).slowStochsticValue(5,3).toDouble()
   }
 
   private fun evalLongTermTrendValue(chart: Chart): Double {
-    return chart.getMergedCandleChart(longTerm).slowStochsticValue(5,3).toDouble()
+    val barCount = 5
+    val movingAverageSize = 3
+    return chart.getMergedCandleChart(longTerm, barCount+movingAverageSize+2).slowStochsticValue(5,3).toDouble()
   }
 
   private fun getTrendFromValueVector(valueTriple: Triple<Double, Double, Double>): Triple<Int, Int, Int> {

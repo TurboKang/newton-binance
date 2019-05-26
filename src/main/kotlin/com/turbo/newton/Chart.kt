@@ -23,20 +23,34 @@ data class Chart(
     return candles.last()
   }
 
-  fun getMergedCandleChart(duration: Duration): Chart {
+  fun getMergedCandleChart(duration: Duration, size: Int? = null): Chart {
     val a = System.currentTimeMillis()
     val chunkSize = duration.toNanos() / Duration.ofMinutes(1).toNanos()
-    val ret = if(chunkSize != 1L) {
-      Chart(
-          candles
-              .chunked(chunkSize.toInt())
-              .map { Candle.merge(it) }
-              .toMutableList()
-      )
+    val ret = if(size != null) {
+      if(chunkSize != 1L) {
+        val chuncked = candles
+            .chunked(chunkSize.toInt())
+        Chart(
+            chuncked.subList(chuncked.size - size, chuncked.size)
+                .map { Candle.merge(it) }
+                .toMutableList()
+        )
+      } else {
+        Chart(candles.subList(candles.size - size, candles.size))
+      }
     } else {
-      this
+      if(chunkSize != 1L) {
+        Chart(
+            candles
+                .chunked(chunkSize.toInt())
+                .map { Candle.merge(it) }
+                .toMutableList()
+        )
+      } else {
+        this
+      }
     }
-    System.out.println("MergeCandle: " + (System.currentTimeMillis() - a))
+//    System.out.println("MergeCandle: " + (System.currentTimeMillis() - a))
     return ret
   }
 
