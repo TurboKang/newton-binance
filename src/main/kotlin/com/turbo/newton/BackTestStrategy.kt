@@ -4,10 +4,13 @@ import com.turbo.binance.BinanceClient
 import com.turbo.binance.BinanceMock
 import com.turbo.binance.enum.CandleIntervalEnum
 import com.turbo.binance.model.Symbol
+import com.turbo.newton.db.DatabaseManager
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import java.math.BigDecimal
 import java.time.Duration
 import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 
 class BackTestStrategy(
     private val binanceMock: BinanceMock,
@@ -22,7 +25,7 @@ class BackTestStrategy(
     val logger = LoggerFactory.getLogger(BackTestStrategy::class.java)
   }
 
-  var index = 1
+  var index = 0
   var chart: Chart? = null
   var smlTrendValue = Triple(0.0, 0.0, 0.0)
 
@@ -35,6 +38,8 @@ class BackTestStrategy(
   var startAsset = BigDecimal.ZERO
   var startPrice = BigDecimal.ZERO
 
+  var evaluations = mutableListOf<EvaluationDataClass>()
+
   suspend fun run() {
     val candles = binanceMock.getCandles(
         symbolStr = symbolStr,
@@ -45,33 +50,45 @@ class BackTestStrategy(
     )
 
     chart = Chart(candles.sortedBy { it.openTime }.toMutableList())
-    startPrice = chart!!.getLastCandle().closePrice
+    index = ChronoUnit.MINUTES.between(chart!!.candles[0].openTime, backTestStartDateTime).toInt()
+
+    startPrice = chart!!.candles[index].closePrice
     startAsset = baseAssetBalance * startPrice + quoteAssetBalance
     checkTrendAndSetPosition()
   }
 
   suspend fun checkTrendAndSetPosition() {
     val previousTrend = getTrendFromValueVector(smlTrendValue)
-    val candles = binanceMock.getCandles(
-        symbolStr = symbolStr,
-        firstCandleOpenZonedDateTime = null,
-        lastCandleOpenZonedDateTime = backTestStartDateTime.plusMinutes(index.toLong()),
-        interval = CandleIntervalEnum.MINUTE_1,
-        limit = 2
-    )
-
-    chart!!.addCandle(candles.first())
-    chart!!.addCandle(candles.last())
-
-    smlTrendValue = Triple(evalShortTermTrendValue(chart!!), evalMidTermTrendValue(chart!!), evalLongTermTrendValue(chart!!))
+    smlTrendValue = Triple(evalShortTermTrendValue(chart!!, index), evalMidTermTrendValue(chart!!, index), evalLongTermTrendValue(chart!!, index))
     val currentTrend = getTrendFromValueVector(smlTrendValue)
     if(currentTrend != previousTrend) {
 //      logger.info("${candles.last().closeTime} - $currentTrend")
       setPosition(currentTrend)
     }
 
-    if(index % 60 == 0) {
-      evaluate()
+    if(true || chart!!.candles[index].openTime.minute == 0) {
+        evaluate()
+    }
+
+    val currentTime = chart!!.candles[index].openTime
+    if(currentTime.minute == 0 && currentTime.hour == 0 && currentTime.dayOfWeek.value == 1) {
+      transaction {
+        evaluations.forEach {
+          DatabaseManager.insertEvaluation(
+              _openTime = it.openTime,
+              _closeTime = it.closeTime,
+              _myReturn = it.myReturn,
+              _marketReturn = it.marketReturn,
+              _price = it.price,
+              _totalBalance = it.totalBalance,
+              _basePosition = it.basePosition,
+              _quotePosition = it.quotePosition,
+              _baseBalance = it.baseBalance,
+              _quoteBalance = it.quoteBalance
+          )
+        }
+      }
+      evaluations = mutableListOf()
     }
     index++
     eventManager.bookFuture(0, suspend { checkTrendAndSetPosition() })
@@ -111,7 +128,7 @@ class BackTestStrategy(
     }
     if(previousPosition != positionPair) {
       val baseAssetDifference = getPositionChangeResult(previousPosition, positionPair)
-      val currentCandle = chart!!.getLastCandle()
+      val currentCandle = chart!!.candles[index]
       val currentPrice = currentCandle.closePrice
 
       baseAssetBalance = (baseAssetBalance + baseAssetDifference).setScale(8, BigDecimal.ROUND_DOWN)
@@ -120,16 +137,29 @@ class BackTestStrategy(
   }
 
   private fun evaluate() {
-    val currentCandle = chart!!.getLastCandle()
+    val currentCandle = chart!!.candles[index]
     val currentPrice = currentCandle.closePrice
     val balanceByQuoteAsset = getBalanceByQuoteAsset(currentPrice)
     val backTestROI = ((balanceByQuoteAsset-startAsset) / startAsset * BigDecimal(100)).setScale(2, BigDecimal.ROUND_HALF_UP)
     val marketROI = ((currentPrice - startPrice) / startPrice * BigDecimal(100)).setScale(2, BigDecimal.ROUND_HALF_UP)
-    logger.info("${System.currentTimeMillis() / 1000 - startTime} ${currentCandle.closeTime} : $backTestROI : $marketROI : $balanceByQuoteAsset : ${positionPair.first} : ${positionPair.second} : $baseAssetBalance : $quoteAssetBalance")
+
+    evaluations.add(EvaluationDataClass(
+        openTime = currentCandle.openTime,
+        closeTime = currentCandle.closeTime,
+        myReturn = backTestROI,
+        marketReturn = marketROI,
+        price = currentPrice,
+        totalBalance = balanceByQuoteAsset,
+        basePosition = positionPair.first,
+        quotePosition = positionPair.second,
+        baseBalance = baseAssetBalance,
+        quoteBalance = quoteAssetBalance
+    ))
+    logger.info("${System.currentTimeMillis() / 1000 - startTime} ${currentCandle.closeTime} : $backTestROI : $marketROI : $balanceByQuoteAsset : ${positionPair.first} : ${positionPair.second} : $baseAssetBalance : $quoteAssetBalance : $smlTrendValue")
   }
 
   private fun getPositionChangeResult(previousPosition: Pair<Int, Int>, positionPair: Pair<Int, Int>): BigDecimal {
-    val currentCandle = chart!!.getLastCandle()
+    val currentCandle = chart!!.candles[index]
     val currentBalanceTotal = getBalanceByQuoteAsset(currentCandle.closePrice)
     val ret = currentBalanceTotal * positionPair.first.toBigDecimal() / (positionPair.first + positionPair.second).toBigDecimal() / currentCandle.closePrice - baseAssetBalance
     return ret.setScale(8, BigDecimal.ROUND_DOWN)
@@ -139,22 +169,22 @@ class BackTestStrategy(
     return baseAssetBalance * currentPrice + quoteAssetBalance
   }
 
-  private fun evalShortTermTrendValue(chart: Chart): Double {
+  private fun evalShortTermTrendValue(chart: Chart, endIndexExclusive: Int): Double {
     val barCount = 5
     val movingAverageSize = 3
-    return chart.getMergedCandleChart(shortTerm, barCount+movingAverageSize+2).slowStochsticValue(5,3).toDouble()
+    return chart.getMergedCandleChart(shortTerm, endIndexExclusive, barCount+movingAverageSize+2).slowStochsticValue(5,3).toDouble()
   }
 
-  private fun evalMidTermTrendValue(chart: Chart): Double {
+  private fun evalMidTermTrendValue(chart: Chart, endIndexExclusive: Int): Double {
     val barCount = 5
     val movingAverageSize = 3
-    return chart.getMergedCandleChart(midTerm, barCount+movingAverageSize+2).slowStochsticValue(5,3).toDouble()
+    return chart.getMergedCandleChart(midTerm, endIndexExclusive, barCount+movingAverageSize+2).slowStochsticValue(5,3).toDouble()
   }
 
-  private fun evalLongTermTrendValue(chart: Chart): Double {
+  private fun evalLongTermTrendValue(chart: Chart, endIndexExclusive: Int): Double {
     val barCount = 5
     val movingAverageSize = 3
-    return chart.getMergedCandleChart(longTerm, barCount+movingAverageSize+2).slowStochsticValue(5,3).toDouble()
+    return chart.getMergedCandleChart(longTerm, endIndexExclusive, barCount+movingAverageSize+2).slowStochsticValue(5,3).toDouble()
   }
 
   private fun getTrendFromValueVector(valueTriple: Triple<Double, Double, Double>): Triple<Int, Int, Int> {
@@ -176,5 +206,18 @@ class BackTestStrategy(
       else -> 0
     }
   }
+
+  data class EvaluationDataClass(
+      val openTime: ZonedDateTime,
+      val closeTime: ZonedDateTime,
+      val myReturn: BigDecimal,
+      val marketReturn: BigDecimal,
+      val price: BigDecimal,
+      val totalBalance: BigDecimal,
+      val baseBalance: BigDecimal,
+      val quoteBalance: BigDecimal,
+      val basePosition: Int,
+      val quotePosition: Int
+  )
 
 }

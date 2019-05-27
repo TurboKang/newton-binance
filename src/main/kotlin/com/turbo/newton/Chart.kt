@@ -6,7 +6,7 @@ import java.math.BigDecimal
 import java.time.Duration
 
 data class Chart(
-    private var candles: MutableList<Candle>
+    var candles: MutableList<Candle>
 ) {
   companion object {
       val logger = LoggerFactory.getLogger(Chart::class.java)
@@ -19,16 +19,13 @@ data class Chart(
     }
   }
 
-  fun getLastCandle(): Candle {
-    return candles.last()
-  }
-
-  fun getMergedCandleChart(duration: Duration, size: Int? = null): Chart {
+  fun getMergedCandleChart(duration: Duration, endIndexExclusive: Int = candles.size, size: Int? = null): Chart {
     val a = System.currentTimeMillis()
     val chunkSize = duration.toNanos() / Duration.ofMinutes(1).toNanos()
     val ret = if(size != null) {
       if(chunkSize != 1L) {
         val chuncked = candles
+            .subList((endIndexExclusive - chunkSize * size).toInt(), endIndexExclusive)
             .chunked(chunkSize.toInt())
         Chart(
             chuncked.subList(chuncked.size - size, chuncked.size)
@@ -36,12 +33,15 @@ data class Chart(
                 .toMutableList()
         )
       } else {
-        Chart(candles.subList(candles.size - size, candles.size))
+        Chart(candles
+            .subList(endIndexExclusive - size, endIndexExclusive)
+        )
       }
     } else {
       if(chunkSize != 1L) {
         Chart(
             candles
+                .subList(0, endIndexExclusive)
                 .chunked(chunkSize.toInt())
                 .map { Candle.merge(it) }
                 .toMutableList()
@@ -84,7 +84,7 @@ data class Chart(
       val minClosePrice = scopedCandles.map { it.closePrice }.min()!!
       val maxClosePrice = scopedCandles.map { it.closePrice }.max()!!
       val numerator = scopedCandles.last().closePrice - minClosePrice
-      val denominator = maxClosePrice - minClosePrice
+      val denominator = maxClosePrice - minClosePrice + BigDecimal(0.00000001)
       return numerator / denominator * BigDecimal(100)
     }
   }

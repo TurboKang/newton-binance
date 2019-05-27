@@ -20,6 +20,12 @@ class BinanceMock(
     val historyGroup = historyGroupMap[symbolStr]!!
     var candles: List<Candle> = emptyList()
     transaction {
+      candles =  DatabaseManager.selectCandleHistoryByHistoryGroup(historyGroup.id.value)
+    }
+
+    /*
+    var candles: List<Candle> = emptyList()
+    transaction {
       val (confirmedStart, confirmedEnd) = when {
         firstCandleOpenZonedDateTime != null && lastCandleOpenZonedDateTime != null -> {
           Pair(firstCandleOpenZonedDateTime, lastCandleOpenZonedDateTime)
@@ -33,7 +39,8 @@ class BinanceMock(
       }
       candles = DatabaseManager.selectCandleHistoryByHistoryGroupAndDuration(historyGroup.id.value, confirmedStart, confirmedEnd)
     }
-//    System.out.println("Query: " + (System.currentTimeMillis() - a))
+    */
+    System.out.println("Query: " + (System.currentTimeMillis() - a))
     return candles
   }
 }

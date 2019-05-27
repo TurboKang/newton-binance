@@ -64,6 +64,21 @@ object DatabaseManager {
     return listOfCandleHistory.map { Candle.buildFromCandleHistory(it) }
   }
 
+  fun insertEvaluation(_openTime: ZonedDateTime, _closeTime: ZonedDateTime, _myReturn: BigDecimal, _marketReturn: BigDecimal, _price: BigDecimal, _totalBalance: BigDecimal, _baseBalance: BigDecimal, _quoteBalance: BigDecimal, _basePosition: Int, _quotePosition: Int): Evaluation {
+    return Evaluation.new {
+      openTime = _openTime.toJodaDateTime()
+      closeTime = _closeTime.toJodaDateTime()
+      myReturn = _myReturn
+      marketReturn = _marketReturn
+      price = _price
+      totalBalance = _totalBalance
+      baseBalance = _baseBalance
+      quoteBalance = _quoteBalance
+      basePosition = _basePosition
+      quotePosition = _quotePosition
+    }
+  }
+
   fun connect(url: String, user: String, password: String, driver: String, withClean: Boolean) {
     Database.connect(
         url = url,
@@ -143,4 +158,31 @@ class CandleHistory(id: EntityID<Int>): IntEntity(id) {
   var takerBuyBaseAssetVolume by CandleHistories.takerBuyBaseAssetVolume
   var takerBuyQuoteAssetVolume by CandleHistories.takerBuyQuoteAssetVolume
   var ignore by CandleHistories.ignore
+}
+
+object Evaluations: IntIdTable() {
+  val openTime: Column<DateTime> = datetime("openTime").index()
+  val closeTime: Column<DateTime> = datetime("closeTime").index()
+  val myReturn: Column<BigDecimal> = decimal(name = "myReturn", precision = 20, scale = 8)
+  val marketReturn: Column<BigDecimal> = decimal(name = "marketReturn", precision = 20, scale = 8)
+  val price: Column<BigDecimal> = decimal(name = "price", precision = 20, scale = 8)
+  val totalBalance: Column<BigDecimal> = decimal(name = "totalBalance", precision = 20, scale = 8)
+  val baseBalance: Column<BigDecimal> = decimal(name = "baseBalance", precision = 20, scale = 8)
+  val quoteBalance: Column<BigDecimal> = decimal(name = "quoteBalance", precision = 20, scale = 8)
+  val basePosition: Column<Int> = integer(name = "basePosition")
+  val quotePosition: Column<Int> = integer(name = "quotePosition")
+}
+
+class Evaluation(id: EntityID<Int>): IntEntity(id) {
+  companion object : IntEntityClass<Evaluation>(Evaluations)
+  var openTime by Evaluations.openTime
+  var closeTime by Evaluations.closeTime
+  var myReturn by Evaluations.myReturn
+  var marketReturn by Evaluations.marketReturn
+  var price by Evaluations.price
+  var totalBalance by Evaluations.totalBalance
+  var baseBalance by Evaluations.baseBalance
+  var quoteBalance by Evaluations.quoteBalance
+  var basePosition by Evaluations.basePosition
+  var quotePosition by Evaluations.quotePosition
 }
