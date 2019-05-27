@@ -20,7 +20,11 @@ class BinanceMock(
     val historyGroup = historyGroupMap[symbolStr]!!
     var candles: List<Candle> = emptyList()
     transaction {
-      candles =  DatabaseManager.selectCandleHistoryByHistoryGroup(historyGroup.id.value)
+      candles =  DatabaseManager.selectCandleHistoryByHistoryGroupAndDuration(
+          historyGroupId = historyGroup.id.value,
+          startInclusive = firstCandleOpenZonedDateTime!!,
+          endExclusive = lastCandleOpenZonedDateTime!!
+      )
     }
 
     /*

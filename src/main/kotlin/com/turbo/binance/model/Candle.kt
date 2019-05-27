@@ -6,7 +6,7 @@ import java.math.BigDecimal
 import java.time.Duration
 import java.time.ZonedDateTime
 
-class Candle(
+data class Candle(
         val openTime: ZonedDateTime,
         val closeTime: ZonedDateTime,
         val highPrice: BigDecimal,

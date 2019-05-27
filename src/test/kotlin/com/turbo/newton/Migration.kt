@@ -38,13 +38,13 @@ class Migration {
         user = prop.getProperty("database.user"),
         password = prop.getProperty("database.password"),
         driver = prop.getProperty("database.driver"),
-        withClean = true
+        withClean = false//true
     )
   }
 
   @Test
   fun fetchDataFromBinance() {
-    val fetchDataFrom = ZonedDateTime.of(2019, 1, 1, 0, 0 ,0, 0, ZoneId.systemDefault())
+    val fetchDataFrom = ZonedDateTime.of(2017, 1, 1, 0, 0 ,0, 0, ZoneId.systemDefault())
     val fetchDataTo = ZonedDateTime.now()
     val minutes = ChronoUnit.MINUTES.between(fetchDataFrom, fetchDataTo)
     val fetchCount = minutes / 1000 + 1
@@ -52,18 +52,19 @@ class Migration {
         Pair("BNB","USDT"),
         Pair("ETH","USDT"),
         Pair("LTC","USDT"),
-        Pair("MATIC","USDT"),
-        Pair("BCHABC","USDT"),
-        Pair("EOS","USDT"),
-        Pair("XRP","USDT"),
-        Pair("TFUEL","USDT"),
-        Pair("BTT","USDT")
+//        Pair("MATIC","USDT"),
+//        Pair("BCHABC","USDT"),
+//        Pair("EOS","USDT"),
+        Pair("XRP","USDT")
+//        Pair("TFUEL","USDT"),
+//        Pair("BTT","USDT")
     )
     val historyGroups = mutableMapOf<String, HistoryGroup>()
     transaction {
+      val historyGroupList = DatabaseManager.selectHistoryGroup()
       markets.forEach { market ->
         val symbol = "${market.first}${market.second}"
-        historyGroups[symbol] = DatabaseManager.insertHistoryGroup(_baseAsset = market.first, _quoteAsset = market.second, _description = symbol)
+        historyGroups[symbol] = historyGroupList.singleOrNull { it.description == symbol } ?: DatabaseManager.insertHistoryGroup(_baseAsset = market.first, _quoteAsset = market.second, _description = symbol)
       }
     }
     val indexChunk = (0..fetchCount).chunked(10)

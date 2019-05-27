@@ -64,8 +64,9 @@ object DatabaseManager {
     return listOfCandleHistory.map { Candle.buildFromCandleHistory(it) }
   }
 
-  fun insertEvaluation(_openTime: ZonedDateTime, _closeTime: ZonedDateTime, _myReturn: BigDecimal, _marketReturn: BigDecimal, _price: BigDecimal, _totalBalance: BigDecimal, _baseBalance: BigDecimal, _quoteBalance: BigDecimal, _basePosition: Int, _quotePosition: Int): Evaluation {
+  fun insertEvaluation(_testId: String, _openTime: ZonedDateTime, _closeTime: ZonedDateTime, _myReturn: BigDecimal, _marketReturn: BigDecimal, _price: BigDecimal, _totalBalance: BigDecimal, _baseBalance: BigDecimal, _quoteBalance: BigDecimal, _basePosition: Int, _quotePosition: Int): Evaluation {
     return Evaluation.new {
+      testId = _testId
       openTime = _openTime.toJodaDateTime()
       closeTime = _closeTime.toJodaDateTime()
       myReturn = _myReturn
@@ -161,6 +162,7 @@ class CandleHistory(id: EntityID<Int>): IntEntity(id) {
 }
 
 object Evaluations: IntIdTable() {
+  val testId: Column<String> = text(name = "testId", collate = "utf8_general_ci")
   val openTime: Column<DateTime> = datetime("openTime").index()
   val closeTime: Column<DateTime> = datetime("closeTime").index()
   val myReturn: Column<BigDecimal> = decimal(name = "myReturn", precision = 20, scale = 8)
@@ -175,6 +177,7 @@ object Evaluations: IntIdTable() {
 
 class Evaluation(id: EntityID<Int>): IntEntity(id) {
   companion object : IntEntityClass<Evaluation>(Evaluations)
+  var testId by Evaluations.testId
   var openTime by Evaluations.openTime
   var closeTime by Evaluations.closeTime
   var myReturn by Evaluations.myReturn

@@ -6,7 +6,8 @@ import java.time.LocalDateTime
 
 class EventManager(
         val stepMillis: Long,
-        val eventQueue: MutableList<MutableList<suspend () -> Unit>>
+        val eventQueue: MutableList<MutableList<suspend () -> Unit>>,
+        private var poison: Boolean = false
 ) {
     private var currentStep = 0
 
@@ -20,11 +21,14 @@ class EventManager(
                 val minimalWait = launch {
                     delay(stepMillis)
                 }
-                suspendFunctions.forEach {
+                val jobs = suspendFunctions.forEach {
                     suspendFunction -> launch {
                         suspendFunction()
                     }
                 }
+              if(poison) {
+                this.cancel(CancellationException())
+              }
             }
             currentStep++
             eventQueue.removeAt(0)
@@ -50,4 +54,9 @@ class EventManager(
         allocateMinimumStep(delayStep)
         eventQueue[delayStep].add(future)
     }
+
+  fun poison() {
+    this.poison = true
+  }
 }
+

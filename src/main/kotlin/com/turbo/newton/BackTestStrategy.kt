@@ -11,21 +11,26 @@ import java.math.BigDecimal
 import java.time.Duration
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
+import java.util.*
 
 class BackTestStrategy(
     private val binanceMock: BinanceMock,
     private val symbolStr: String,
     private val backTestStartDateTime: ZonedDateTime,
+    private val backTestEndDateTime: ZonedDateTime,
     private val shortTerm: Duration = Duration.ofMinutes(1),
     private val midTerm: Duration = Duration.ofMinutes(15),
     private val longTerm: Duration = Duration.ofMinutes(60),
+    private val saveEvaluation:Boolean,
     private val eventManager: EventManager
 ) {
   companion object {
     val logger = LoggerFactory.getLogger(BackTestStrategy::class.java)
   }
 
+  val testId: String = UUID.randomUUID().toString()
   var index = 0
+  var indexEnd = 0
   var chart: Chart? = null
   var smlTrendValue = Triple(0.0, 0.0, 0.0)
 
@@ -43,14 +48,15 @@ class BackTestStrategy(
   suspend fun run() {
     val candles = binanceMock.getCandles(
         symbolStr = symbolStr,
-        firstCandleOpenZonedDateTime = null,
-        lastCandleOpenZonedDateTime = backTestStartDateTime,
+        firstCandleOpenZonedDateTime = backTestStartDateTime.minusDays(15),
+        lastCandleOpenZonedDateTime = backTestEndDateTime,
         interval = CandleIntervalEnum.MINUTE_1,
         limit = 10000
-    )
+    ).filter { it.closeTime < backTestEndDateTime }
 
     chart = Chart(candles.sortedBy { it.openTime }.toMutableList())
-    index = ChronoUnit.MINUTES.between(chart!!.candles[0].openTime, backTestStartDateTime).toInt()
+    index = chart!!.candles.filter { it.openTime < backTestStartDateTime }.size
+    indexEnd = chart!!.candles.filter { it.openTime < backTestEndDateTime }.size
 
     startPrice = chart!!.candles[index].closePrice
     startAsset = baseAssetBalance * startPrice + quoteAssetBalance
@@ -71,27 +77,59 @@ class BackTestStrategy(
     }
 
     val currentTime = chart!!.candles[index].openTime
+    if(currentTime.monthValue == 2 && currentTime.dayOfMonth == 9 && currentTime.hour == 1 && currentTime.minute == 0) {
+      System.out.println("Here")
+    }
     if(currentTime.minute == 0 && currentTime.hour == 0 && currentTime.dayOfWeek.value == 1) {
-      transaction {
-        evaluations.forEach {
-          DatabaseManager.insertEvaluation(
-              _openTime = it.openTime,
-              _closeTime = it.closeTime,
-              _myReturn = it.myReturn,
-              _marketReturn = it.marketReturn,
-              _price = it.price,
-              _totalBalance = it.totalBalance,
-              _basePosition = it.basePosition,
-              _quotePosition = it.quotePosition,
-              _baseBalance = it.baseBalance,
-              _quoteBalance = it.quoteBalance
-          )
+      if(saveEvaluation) {
+        transaction {
+          evaluations.forEach {
+            DatabaseManager.insertEvaluation(
+                _testId = testId,
+                _openTime = it.openTime,
+                _closeTime = it.closeTime,
+                _myReturn = it.myReturn,
+                _marketReturn = it.marketReturn,
+                _price = it.price,
+                _totalBalance = it.totalBalance,
+                _basePosition = it.basePosition,
+                _quotePosition = it.quotePosition,
+                _baseBalance = it.baseBalance,
+                _quoteBalance = it.quoteBalance
+            )
+          }
         }
+        evaluations = mutableListOf()
       }
-      evaluations = mutableListOf()
     }
     index++
-    eventManager.bookFuture(0, suspend { checkTrendAndSetPosition() })
+    if(index < indexEnd) {
+      eventManager.bookFuture(0, suspend { checkTrendAndSetPosition() })
+    } else {
+      if(evaluations.isNotEmpty()) {
+        if(saveEvaluation) {
+          transaction {
+            evaluations.forEach {
+              DatabaseManager.insertEvaluation(
+                  _testId = testId,
+                  _openTime = it.openTime,
+                  _closeTime = it.closeTime,
+                  _myReturn = it.myReturn,
+                  _marketReturn = it.marketReturn,
+                  _price = it.price,
+                  _totalBalance = it.totalBalance,
+                  _basePosition = it.basePosition,
+                  _quotePosition = it.quotePosition,
+                  _baseBalance = it.baseBalance,
+                  _quoteBalance = it.quoteBalance
+              )
+            }
+          }
+          evaluations = mutableListOf()
+        }
+      }
+      eventManager.poison()
+    }
   }
 
   suspend fun setPosition(trend: Triple<Int, Int, Int>) {
@@ -143,18 +181,20 @@ class BackTestStrategy(
     val backTestROI = ((balanceByQuoteAsset-startAsset) / startAsset * BigDecimal(100)).setScale(2, BigDecimal.ROUND_HALF_UP)
     val marketROI = ((currentPrice - startPrice) / startPrice * BigDecimal(100)).setScale(2, BigDecimal.ROUND_HALF_UP)
 
-    evaluations.add(EvaluationDataClass(
-        openTime = currentCandle.openTime,
-        closeTime = currentCandle.closeTime,
-        myReturn = backTestROI,
-        marketReturn = marketROI,
-        price = currentPrice,
-        totalBalance = balanceByQuoteAsset,
-        basePosition = positionPair.first,
-        quotePosition = positionPair.second,
-        baseBalance = baseAssetBalance,
-        quoteBalance = quoteAssetBalance
-    ))
+    if(saveEvaluation) {
+      evaluations.add(EvaluationDataClass(
+          openTime = currentCandle.openTime,
+          closeTime = currentCandle.closeTime,
+          myReturn = backTestROI,
+          marketReturn = marketROI,
+          price = currentPrice,
+          totalBalance = balanceByQuoteAsset,
+          basePosition = positionPair.first,
+          quotePosition = positionPair.second,
+          baseBalance = baseAssetBalance,
+          quoteBalance = quoteAssetBalance
+      ))
+    }
     logger.info("${System.currentTimeMillis() / 1000 - startTime} ${currentCandle.closeTime} : $backTestROI : $marketROI : $balanceByQuoteAsset : ${positionPair.first} : ${positionPair.second} : $baseAssetBalance : $quoteAssetBalance : $smlTrendValue")
   }
 
@@ -202,7 +242,7 @@ class BackTestStrategy(
   private fun getTrendFromValueScalar(trendValue: Double, threshold: Pair<Double, Double>): Int {
     return when {
       threshold.first > trendValue && threshold.second > trendValue -> -1
-      threshold.first < trendValue && threshold.second < trendValue -> -1
+      threshold.first < trendValue && threshold.second < trendValue -> +1
       else -> 0
     }
   }
