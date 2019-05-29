@@ -106,30 +106,34 @@ class BackTestStrategy(
     if(index < indexEnd) {
       eventManager.bookFuture(0, suspend { checkTrendAndSetPosition() })
     } else {
-      if(evaluations.isNotEmpty()) {
-        if(saveEvaluation) {
-          transaction {
-            evaluations.forEach {
-              DatabaseManager.insertEvaluation(
-                  _testId = testId,
-                  _openTime = it.openTime,
-                  _closeTime = it.closeTime,
-                  _myReturn = it.myReturn,
-                  _marketReturn = it.marketReturn,
-                  _price = it.price,
-                  _totalBalance = it.totalBalance,
-                  _basePosition = it.basePosition,
-                  _quotePosition = it.quotePosition,
-                  _baseBalance = it.baseBalance,
-                  _quoteBalance = it.quoteBalance
-              )
-            }
+      done()
+    }
+  }
+
+  private fun done() {
+    if(evaluations.isNotEmpty()) {
+      if(saveEvaluation) {
+        transaction {
+          evaluations.forEach {
+            DatabaseManager.insertEvaluation(
+                _testId = testId,
+                _openTime = it.openTime,
+                _closeTime = it.closeTime,
+                _myReturn = it.myReturn,
+                _marketReturn = it.marketReturn,
+                _price = it.price,
+                _totalBalance = it.totalBalance,
+                _basePosition = it.basePosition,
+                _quotePosition = it.quotePosition,
+                _baseBalance = it.baseBalance,
+                _quoteBalance = it.quoteBalance
+            )
           }
-          evaluations = mutableListOf()
         }
       }
-      eventManager.poison()
     }
+    logger.info("$symbolStr | $backTestStartDateTime | $backTestEndDateTime | ${evaluations.last().myReturn} | ${evaluations.last().marketReturn}")
+    eventManager.poison()
   }
 
   suspend fun setPosition(trend: Triple<Int, Int, Int>) {
@@ -195,7 +199,6 @@ class BackTestStrategy(
           quoteBalance = quoteAssetBalance
       ))
     }
-    logger.info("${System.currentTimeMillis() / 1000 - startTime} ${currentCandle.closeTime} : $backTestROI : $marketROI : $balanceByQuoteAsset : ${positionPair.first} : ${positionPair.second} : $baseAssetBalance : $quoteAssetBalance : $smlTrendValue")
   }
 
   private fun getPositionChangeResult(previousPosition: Pair<Int, Int>, positionPair: Pair<Int, Int>): BigDecimal {

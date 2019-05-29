@@ -16,7 +16,6 @@ class BinanceMock(
   }
 
   override suspend fun getCandles(symbolStr: String, interval: CandleIntervalEnum, limit: Int, firstCandleOpenZonedDateTime: ZonedDateTime?, lastCandleOpenZonedDateTime: ZonedDateTime?): List<Candle> {
-    val a = System.currentTimeMillis()
     val historyGroup = historyGroupMap[symbolStr]!!
     var candles: List<Candle> = emptyList()
     transaction {
@@ -44,7 +43,6 @@ class BinanceMock(
       candles = DatabaseManager.selectCandleHistoryByHistoryGroupAndDuration(historyGroup.id.value, confirmedStart, confirmedEnd)
     }
     */
-    System.out.println("Query: " + (System.currentTimeMillis() - a))
     return candles
   }
 }
