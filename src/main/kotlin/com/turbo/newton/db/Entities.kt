@@ -1,11 +1,9 @@
 package com.turbo.newton.db
 
 import com.turbo.binance.model.Candle
+import com.turbo.newton.db.Evaluations.index
 import com.turbo.toJodaDateTime
-import org.jetbrains.exposed.dao.EntityID
-import org.jetbrains.exposed.dao.IntEntity
-import org.jetbrains.exposed.dao.IntEntityClass
-import org.jetbrains.exposed.dao.IntIdTable
+import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -80,6 +78,17 @@ object DatabaseManager {
     }
   }
 
+  fun insertBacktest(_testId: String, _symbol: String, _openTime: ZonedDateTime, _closeTime: ZonedDateTime, _myReturn: BigDecimal, _marketReturn: BigDecimal): Backtest {
+    return Backtest.new {
+      testId = _testId
+      symbol = _symbol
+      openTime = _openTime.toJodaDateTime()
+      closeTime = _closeTime.toJodaDateTime()
+      myReturn = _myReturn
+      marketReturn = _marketReturn
+    }
+  }
+
   fun connect(url: String, user: String, password: String, driver: String, withClean: Boolean) {
     Database.connect(
         url = url,
@@ -102,6 +111,7 @@ object DatabaseManager {
     val listOfTable = listOf(
         HistoryGroups,
         CandleHistories,
+        Backtests,
         Evaluations
     )
 
@@ -189,4 +199,23 @@ class Evaluation(id: EntityID<Int>): IntEntity(id) {
   var quoteBalance by Evaluations.quoteBalance
   var basePosition by Evaluations.basePosition
   var quotePosition by Evaluations.quotePosition
+}
+
+object Backtests: IntIdTable() {
+  val testId: Column<String> = Backtests.text(name = "testId", collate = "utf8_general_ci")
+  val symbol: Column<String> = Backtests.text(name = "symbol", collate = "utf8_general_ci")
+  val openTime: Column<DateTime> = Backtests.datetime("openTime").index()
+  val closeTime: Column<DateTime> = Backtests.datetime("closeTime").index()
+  val myReturn: Column<BigDecimal> = Backtests.decimal(name = "myReturn", precision = 20, scale = 8)
+  val marketReturn: Column<BigDecimal> = Backtests.decimal(name = "marketReturn", precision = 20, scale = 8)
+}
+
+class Backtest(id: EntityID<Int>): IntEntity(id) {
+  companion object : IntEntityClass<Backtest>(Backtests)
+  var testId by Backtests.testId
+  var symbol by Backtests.symbol
+  var openTime by Backtests.openTime
+  var closeTime by Backtests.closeTime
+  var myReturn by Backtests.myReturn
+  var marketReturn by Backtests.marketReturn
 }

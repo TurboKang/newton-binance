@@ -75,7 +75,7 @@ class BackTestStrategy(
   }
 
   fun run() {
-    (startIndex until endIndex step tradingStep).foldIndexed(trader) { seq, trader, candleIndex ->
+    val lastTrader = (startIndex until endIndex step tradingStep).foldIndexed(trader) { seq, trader, candleIndex ->
       val candle = chart.candles[candleIndex]
       val (basePosition, quotePosition) = getPosition(candleIndex)
       val newTrader = trader.trade(candle.closePrice, basePosition, quotePosition)
@@ -85,6 +85,17 @@ class BackTestStrategy(
       }
       logger.info(newTrader.toString())
       newTrader
+    }
+
+    transaction {
+      DatabaseManager.insertBacktest(
+          _testId = testId,
+          _symbol = symbolStr,
+          _openTime = backTestStartDateTime,
+          _closeTime = backTestEndDateTime,
+          _myReturn = lastTrader.roi,
+          _marketReturn = (lastTrader.currentPrice * 100.toBigDecimal() / startPrice).setScale(2, BigDecimal.ROUND_DOWN)
+      )
     }
   }
 
@@ -173,19 +184,6 @@ class BackTestStrategy(
       else -> 0
     }
   }
-
-  data class EvaluationDataClass(
-      val openTime: ZonedDateTime,
-      val closeTime: ZonedDateTime,
-      val myReturn: BigDecimal,
-      val marketReturn: BigDecimal,
-      val price: BigDecimal,
-      val totalBalance: BigDecimal,
-      val baseBalance: BigDecimal,
-      val quoteBalance: BigDecimal,
-      val basePosition: Int,
-      val quotePosition: Int
-  )
 
   data class Trader(
       val seedQuote: BigDecimal,
