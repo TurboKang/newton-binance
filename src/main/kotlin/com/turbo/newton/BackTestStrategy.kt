@@ -2,7 +2,6 @@ package com.turbo.newton
 
 import com.turbo.binance.BinanceMock
 import com.turbo.binance.enum.CandleIntervalEnum
-import com.turbo.binance.model.Candle
 import com.turbo.multiply
 import com.turbo.newton.db.DatabaseManager
 import kotlinx.coroutines.runBlocking
@@ -99,15 +98,15 @@ class BackTestStrategy(
     val longTermSignal = getTrendSignal(longTermTrendValue, longTermTrendThreshold)
 
     return when(Triple(shortTermSignal, midTermSignal, longTermSignal)) {
-      Triple(-1, -1, -1) -> 0 to 10
-      Triple(-1, -1, 0) -> 0 to 10
-      Triple(-1, -1, 1) -> 0 to 10
-      Triple(-1, 0, -1) -> 0 to 10
-      Triple(-1, 0, 0) -> 0 to 10
-      Triple(-1, 0, 1) -> 0 to 10
-      Triple(-1, 1, -1) -> 0 to 10
-      Triple(-1, 1, 0) -> 0 to 10
-      Triple(-1, 1, 1) -> 0 to 10
+      Triple(-1, -1, -1) -> 10 to 0
+      Triple(-1, -1, 0) -> 10 to 0
+      Triple(-1, -1, 1) -> 9 to 1
+      Triple(-1, 0, -1) -> 9 to 1
+      Triple(-1, 0, 0) -> 9 to 1
+      Triple(-1, 0, 1) -> 8 to 2
+      Triple(-1, 1, -1) -> 8 to 2
+      Triple(-1, 1, 0) -> 7 to 3
+      Triple(-1, 1, 1) -> 6 to 4
       Triple(0, -1, -1) -> 5 to 5
       Triple(0, -1, 0) -> 5 to 5
       Triple(0, -1, 1) -> 5 to 5
@@ -117,15 +116,16 @@ class BackTestStrategy(
       Triple(0, 1, -1) -> 5 to 5
       Triple(0, 1, 0) -> 5 to 5
       Triple(0, 1, 1) -> 5 to 5
-      Triple(1, -1, -1) -> 10 to 0
-      Triple(1, -1, 0) -> 10 to 0
-      Triple(1, -1, 1) -> 8 to 2
-      Triple(1, 0, -1) -> 8 to 2
-      Triple(1, 0, 0) -> 9 to 1
-      Triple(1, 0, 1) -> 9 to 1
-      Triple(1, 1, -1) -> 9 to 1
-      Triple(1, 1, 0) -> 10 to 0
-      Triple(1, 1, 1) -> 10 to 0
+      Triple(1, -1, -1) -> 4 to 6
+      Triple(1, -1, 0) -> 3 to 7
+      Triple(1, -1, 1) -> 2 to 8
+      Triple(1, 0, -1) -> 2 to 8
+      Triple(1, 0, 0) -> 1 to 9
+      Triple(1, 0, 1) -> 1 to 9
+      Triple(1, 1, -1) -> 1 to 9
+      Triple(1, 1, 0) -> 0 to 10
+      Triple(1, 1, 1) -> 0 to 10
+
       else -> throw Exception()
     }
   }
