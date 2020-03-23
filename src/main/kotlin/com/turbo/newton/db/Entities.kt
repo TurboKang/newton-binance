@@ -101,7 +101,8 @@ object DatabaseManager {
 
     val listOfTable = listOf(
         HistoryGroups,
-        CandleHistories
+        CandleHistories,
+        Evaluations
     )
 
     listOfTable.forEach {table ->

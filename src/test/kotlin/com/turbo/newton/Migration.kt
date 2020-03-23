@@ -44,7 +44,7 @@ class Migration {
 
   @Test
   fun fetchDataFromBinance() {
-    val fetchDataFrom = ZonedDateTime.of(2017, 1, 1, 0, 0 ,0, 0, ZoneId.systemDefault())
+    val fetchDataFrom = ZonedDateTime.of(2020, 1, 1, 0, 0 ,0, 0, ZoneId.systemDefault())
     val fetchDataTo = ZonedDateTime.now()
     val minutes = ChronoUnit.MINUTES.between(fetchDataFrom, fetchDataTo)
     val fetchCount = minutes / 1000 + 1

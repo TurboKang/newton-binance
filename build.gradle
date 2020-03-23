@@ -7,6 +7,7 @@ buildscript {
   ext.slf4j_version = '1.7.25'
   ext.kotlinx_version = '1.1.1'
   ext.mysqlJdbc_version = '8.0.16'
+  ext.math3_version = '3.6.1'
 
 
   repositories {
@@ -58,6 +59,8 @@ dependencies {
   compile "com.fasterxml.jackson.module:jackson-module-kotlin:$jackson_version"
 
   compile "org.ta4j:ta4j-core:$ta4j_version"
+  compile "org.apache.commons:commons-math3:$math3_version"
+
 
   compile "mysql:mysql-connector-java:$mysqlJdbc_version"
   compile "org.jetbrains.exposed:exposed:$exposed_version"
