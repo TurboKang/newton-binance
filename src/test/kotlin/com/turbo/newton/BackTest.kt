@@ -43,11 +43,20 @@ class BackTest {
     val binanceMock = BinanceMock(
         historyGroupMap = mapOf("BTCUSDT" to historyGroups.single { it.description == "BTCUSDT" })
     )
+
+    (0..26).forEach {
+      val start = ZonedDateTime.of(2018,1,1,0,0,0,0, ZoneId.systemDefault())
+          .plusMonths(it.toLong())
+      _backtest(binanceMock, start)
+    }
+  }
+
+  private fun _backtest(binanceMock: BinanceMock, start: ZonedDateTime) {
     BackTestStrategy(
         binanceMock = binanceMock,
         symbolStr = "BTCUSDT",
-        backTestStartDateTime = ZonedDateTime.of(2020,1,1,0,0,0, 0, ZoneId.systemDefault()),
-        backTestEndDateTime = ZonedDateTime.of(2020,3,23,0,0,0, 0, ZoneId.systemDefault())
+        backTestStartDateTime = start,
+        backTestEndDateTime = start.plusMonths(1)
     ).run()
   }
 

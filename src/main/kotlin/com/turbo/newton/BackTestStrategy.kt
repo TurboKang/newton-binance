@@ -75,6 +75,7 @@ class BackTestStrategy(
   }
 
   fun run() {
+    //TODO data 누락으로 인해서 sequence는 어려울 수 있따/
     val lastTrader = (startIndex until endIndex step tradingStep).foldIndexed(trader) { seq, trader, candleIndex ->
       val candle = chart.candles[candleIndex]
       val (basePosition, quotePosition) = getPosition(candleIndex)
